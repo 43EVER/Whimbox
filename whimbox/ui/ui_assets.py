@@ -23,8 +23,8 @@ AreaLaunchButton = Area()
 IconPageChatFeature = ImgIcon(print_log=LOG_WHEN_TRUE, anchor=ANCHOR_BOTTOM_LEFT)
 ButtonPageChatClose = Button(print_log=LOG_WHEN_TRUE, anchor=ANCHOR_TOP_LEFT)
 # 小月卡特征
-IconDailyRewardFeature1 = ImgIcon(print_log=LOG_WHEN_TRUE, anchor=ANCHOR_CENTER)
-IconDailyRewardFeature2 = ImgIcon(print_log=LOG_WHEN_TRUE, anchor=ANCHOR_CENTER)
+IconDailyRewardFeature1 = ImgIcon(print_log=LOG_WHEN_TRUE, threshold=0.99, anchor=ANCHOR_CENTER)
+IconDailyRewardFeature2 = ImgIcon(print_log=LOG_WHEN_TRUE, threshold=0.99, anchor=ANCHOR_CENTER)
 
 
 # loading界面
