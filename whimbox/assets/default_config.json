@@ -12,11 +12,11 @@
             "value": "rapid",
             "description": "OCR引擎，可选：rapid"
         },
-        "ui_position_x": {
+        "windows_pos_x": {
             "value": "10",
             "description": "UI窗口在屏幕上的绝对水平位置（像素）"
         },
-        "ui_position_y": {
+        "windows_pos_y": {
             "value": "10",
             "description": "UI窗口在屏幕上的绝对垂直位置（像素）"
         },

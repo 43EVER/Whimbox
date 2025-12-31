@@ -23,8 +23,8 @@ class IngameUI(QWidget):
         super().__init__()
         
         # 1. 立即加载并设置位置/大小，防止启动闪烁
-        pos_x = global_config.get_int("General", "ui_position_x", 10)
-        pos_y = global_config.get_int("General", "ui_position_y", 10)
+        pos_x = global_config.get_int("General", "windows_pos_x", 10)
+        pos_y = global_config.get_int("General", "windows_pos_y", 10)
         self.saved_position = QPoint(pos_x, pos_y)
         self.move(self.saved_position) 
         
@@ -396,8 +396,8 @@ class IngameUI(QWidget):
         new_pos = self.pos()
         if self.saved_position != new_pos:
             self.saved_position = new_pos
-            global_config.set("General", "ui_position_x", new_pos.x())
-            global_config.set("General", "ui_position_y", new_pos.y())
+            global_config.set("General", "windows_pos_x", new_pos.x())
+            global_config.set("General", "windows_pos_x", new_pos.y())
             global_config.save()
             
     def resizeEvent(self, event):
