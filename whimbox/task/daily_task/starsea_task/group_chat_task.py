@@ -7,9 +7,9 @@ from whimbox.ui.ui import ui_control
 from whimbox.ui.ui_assets import *
 from whimbox.ui.page_assets import *
 
-class XinghaiGroupChatTask(TaskTemplate):
+class GroupChatTask(TaskTemplate):
     def __init__(self):
-        super().__init__("xinghai_group_chat_task")
+        super().__init__("group_chat_task")
 
     @register_step("前往星海沙发")
     def step1(self):
@@ -48,5 +48,5 @@ class XinghaiGroupChatTask(TaskTemplate):
         ui_control.goto_page(page_main)
     
 if __name__ == "__main__":
-    task = XinghaiGroupChatTask()
+    task = GroupChatTask()
     task.task_run()

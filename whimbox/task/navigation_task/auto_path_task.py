@@ -11,8 +11,6 @@ from whimbox.ability.ability import ability_manager
 from whimbox.action.pickup import PickupTask
 from whimbox.action.catch_insect import CatchInsectTask
 from whimbox.action.clean_animal import CleanAnimalTask
-from whimbox.task.minigame_task.minigame_task import MinigameTask
-from whimbox.task.macro_task.run_macro_task import RunMacroTask
 from whimbox.action.fishing import FishingTask
 from whimbox.common.scripts_manager import *
 from whimbox.map.convert import convert_GameLoc_to_PngMapPx
@@ -238,13 +236,19 @@ class AutoPathTask(TaskTemplate):
                 elif self.target_point.action == ACTION_MINIGAME:
                     macro_name = self.target_point.action_params
                     if macro_name is not None:
-                        minigame_task = MinigameTask(self.target_point.action_params)
+                        from whimbox.task.minigame_task.minigame_task import MinigameTask
+                        minigame_task = MinigameTask(macro_name)
                         minigame_task.task_run()
                 elif self.target_point.action == ACTION_MACRO:
                     macro_name = self.target_point.action_params
                     if macro_name is not None:
+                        from whimbox.task.macro_task.run_macro_task import RunMacroTask
                         macro_task = RunMacroTask(macro_name)
                         macro_task.task_run()
+                elif self.target_point.action == ACTION_PLACE_ITEM:
+                    from whimbox.task.daily_task.starsea_task.place_item_task import PlaceItemTask
+                    place_item_task = PlaceItemTask()
+                    place_item_task.task_run()
 
             if self.curr_target_point_id >= len(self.path_points) - 1:
                 # 走到终点了
@@ -340,6 +344,6 @@ class AutoPathTask(TaskTemplate):
 
 
 if __name__ == "__main__":
-    task = AutoPathTask(path_name="古木荫地打怪路线")
+    task = AutoPathTask(path_name="星海拾光_放置摆饰")
     task_result = task.task_run()
     print(task_result.to_dict())

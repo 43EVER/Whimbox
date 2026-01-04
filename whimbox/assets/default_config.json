@@ -134,6 +134,10 @@
             "value": "j",
             "description": "奇迹之旅/乐园构想"
         },
+        "item":{
+            "value": "z",
+            "description": "使用消耗品"
+        },
         "event":{
             "value": "k",
             "description": "活动大厅"

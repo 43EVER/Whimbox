@@ -212,3 +212,8 @@ ButtonMinigameQuit = Button(print_log=LOG_ALL, threshold=0.99, anchor=ANCHOR_CEN
 ButtonMinigameRetry = Button(print_log=LOG_ALL, threshold=0.99, anchor=ANCHOR_CENTER)
 ButtonMinigameRetryOk = Button(print_log=LOG_ALL, threshold=0.99, anchor=ANCHOR_CENTER)
 AreaMinigameEscSelect = Area(anchor=ANCHOR_BOTTOM_RIGHT)
+
+# 使用物品相关
+IconItemPlaceable = ImgIcon(print_log=LOG_WHEN_TRUE, anchor=ANCHOR_BOTTOM_CENTER)
+AreaItemQuickList = Area(anchor=ANCHOR_BOTTOM_CENTER)
+IconItemCantPlace = ImgIcon(print_log=LOG_WHEN_TRUE, threshold=0.90, hsv_limit=([0,0,210], [179,130,255]), anchor=ANCHOR_TOP_CENTER)

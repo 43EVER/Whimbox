@@ -7,6 +7,7 @@ class Keybind:
         self.KEYBIND_DRESS = "c"
         self.KEYBIND_TAKE_PHOTO = "p"
         self.KEYBIND_MONTHLY_PASS = "j"
+        self.KEYBIND_ITEM = "z"
         self.KEYBIND_EVENT = "k"
         self.KEYBIND_INTERACTION = "f"
         self.KEYBIND_BELL = "x"
@@ -33,6 +34,7 @@ class Keybind:
         self.KEYBIND_DRESS = global_config.get('Keybinds', 'dress')
         self.KEYBIND_TAKE_PHOTO = global_config.get('Keybinds', 'take_photo')
         self.KEYBIND_MONTHLY_PASS = global_config.get('Keybinds', 'monthly_pass')
+        self.KEYBIND_ITEM = global_config.get('Keybinds', 'item')
         self.KEYBIND_EVENT = global_config.get('Keybinds', 'event')
         self.KEYBIND_INTERACTION = global_config.get('Keybinds', 'interaction')
         self.KEYBIND_BELL = global_config.get('Keybinds', 'bell')

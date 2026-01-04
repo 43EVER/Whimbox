@@ -66,7 +66,8 @@ def find_game_img(game_img: GameImg, cap, threshold, scale=0.5):
     box = [top_left[0], top_left[1], bottom_right[0], bottom_right[1]]
     return box
 
-def scroll_find_click(area: Area, target, threshold=0, hsv_limit=None, scale=0, str_match_mode=0, click_offset=(0, 0)) -> bool:
+
+def scroll_find_click(area: Area, target, threshold=0, hsv_limit=None, scale=0, str_match_mode=0, click_offset=(0, 0), need_scroll=True) -> bool:
     '''
     在指定的区域内滚动，寻找并点击目标
 
@@ -78,6 +79,7 @@ def scroll_find_click(area: Area, target, threshold=0, hsv_limit=None, scale=0, 
         scale: target的缩放比例，用于ImgIcon或GameImg
         str_match_mode: 字符串匹配模式，0为完全匹配，1为包含匹配
         click_offset: 点击偏移量，tuple(x, y)
+        need_scroll: 是否需要滚动，默认True
     
     Returns:
         bool: 是否找到目标
@@ -144,26 +146,29 @@ def scroll_find_click(area: Area, target, threshold=0, hsv_limit=None, scale=0, 
             raise Exception(f"不支持的target类型: {type(target)}")
 
 
-        # 如果第一次没找到目标，就先把画面滚到顶，再开始寻找
-        if is_first_time:
-            logger.info(f"第一次没找到目标，先把画面滚到顶")
-            cap = scroll_to_top(area)
-            is_first_time = False
-        else:
-            # 如果没找到目标，就把鼠标移到area的右下角，向下滚动
-            # todo: 支持expand，不过暂时没什么关系
-            scroll_posi = (area.position.x2, area.position.y2)
-            itt.move_to(scroll_posi, anchor=area.position.anchor)
-            itt.middle_scroll(-15)
-            time.sleep(0.2)
-
-            # 如果画面不再变化，说明滚到底了
-            new_cap = itt.capture(anchor_posi = area.position)
-            rate = similar_img(cap, new_cap)
-            if rate > 0.99:
-                break
+        if need_scroll:
+            # 如果第一次没找到目标，就先把画面滚到顶，再开始寻找
+            if is_first_time:
+                logger.info(f"第一次没找到目标，先把画面滚到顶")
+                cap = scroll_to_top(area)
+                is_first_time = False
             else:
-                cap = new_cap
+                # 如果没找到目标，就把鼠标移到area的右下角，向下滚动
+                # todo: 支持expand，不过暂时没什么关系
+                scroll_posi = (area.position.x2, area.position.y2)
+                itt.move_to(scroll_posi, anchor=area.position.anchor)
+                itt.middle_scroll(-15)
+                time.sleep(0.2)
+
+                # 如果画面不再变化，说明滚到底了
+                new_cap = itt.capture(anchor_posi = area.position)
+                rate = similar_img(cap, new_cap)
+                if rate > 0.99:
+                    break
+                else:
+                    cap = new_cap
+        else:
+            break
         
     if box:
         area.click(target_box=box, offset=click_offset)
@@ -292,6 +297,6 @@ if __name__ == "__main__":
 
     # scroll_find_click(AreaBlessHuanjingLevelsSelect, "翻滚", str_match_mode=1)
     # scroll_find_click(AreaEscEntrances, "美鸭梨挖掘")
-    scroll_find_click(AreaXhsgBooklookWaterfall, IconXhsgBooklookLikeButton)
+    scroll_find_click(AreaItemQuickList, IconItemPlaceable, scale=1.05, threshold=IconItemPlaceable.threshold, need_scroll=False)
 
     
