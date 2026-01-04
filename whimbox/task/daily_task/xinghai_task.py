@@ -12,15 +12,15 @@ from whimbox.common.logger import logger
 from whimbox.map.map import nikki_map
 from whimbox.map.convert import convert_GameLoc_to_PngMapPx
 from whimbox.map.detection.cvars import MAP_NAME_STARSEA
-from whimbox.task.daily_task.lookbook_like_task import LookbookLikeTask
-from whimbox.task.daily_task.xinghai_group_chat_task import XinghaiGroupChatTask
+from whimbox.task.daily_task.starsea_task.lookbook_like_task import LookbookLikeTask
+from whimbox.task.daily_task.starsea_task.group_chat_task import GroupChatTask
 from whimbox.task.navigation_task.auto_path_task import AutoPathTask
 
 xhsg_task_info_list = [
     {
         "key_words": ["摆饰"],
         "score": 200,
-        "priority": 0,
+        "priority": 5,
         "task_name": XHSG_TASK_PLACE_ITEM
     },
     {
@@ -175,6 +175,8 @@ class XinghaiTask(TaskTemplate):
 
         # 根据分数和优先级完成其他任务
         for task in unfinished_task_list:
+            if self.need_stop():
+                break
             if task['priority'] == 0:
                 continue
             if temp_score >= 500:
@@ -194,10 +196,13 @@ class XinghaiTask(TaskTemplate):
     def step4(self):
         task_dict = {
             XHSG_TASK_BOOKLOOK_LIKE: LookbookLikeTask(),
-            XHSG_TASK_GROUP_CHAT: XinghaiGroupChatTask(),
+            XHSG_TASK_GROUP_CHAT: GroupChatTask(),
             XHSG_TASK_BUBBLE_MAKE: AutoPathTask(path_name="星海拾光_制造泡泡"),
+            XHSG_TASK_PLACE_ITEM: AutoPathTask(path_name="星海拾光_放置摆饰"),
         }
         for task_name in self.todo_list:
+            if self.need_stop():
+                break
             if task_name in task_dict:
                 task = task_dict[task_name]
                 task.task_run()

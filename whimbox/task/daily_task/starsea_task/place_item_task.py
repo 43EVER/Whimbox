@@ -23,7 +23,8 @@ class PlaceItemTask(TaskTemplate):
     @register_step("放置摆饰")
     def step2(self):
         itt.key_press(keybind.KEYBIND_ITEM)
-        while not self.need_stop():
+        retry_time = 20
+        while not self.need_stop() and retry_time > 0:
             itt.left_click()
             time.sleep(1)
             if itt.get_img_existence(IconItemCantPlace):
@@ -31,6 +32,10 @@ class PlaceItemTask(TaskTemplate):
             else:
                 self.log_to_gui("摆饰放置成功")
                 break
+            retry_time -= 1
+        if retry_time == 0:
+            self.log_to_gui("摆饰放置失败", is_error=True)
+            itt.right_click()
 
 
 if __name__ == "__main__":
