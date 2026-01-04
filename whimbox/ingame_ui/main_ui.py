@@ -35,7 +35,8 @@ class IngameUI(QWidget):
         
         # 2. 状态管理
         self.is_expanded = True
-        self.focus_on_game = True
+        self.task_running = False
+        self.ui_clickable = True
         self.current_view = 'chat'
         self.waiting_for_task_stop = False
         self.is_minimized = False
@@ -58,7 +59,7 @@ class IngameUI(QWidget):
         
         # 4. 计时器
         self.timer = QTimer()
-        self.timer.timeout.connect(self.update_ui_position)
+        self.timer.timeout.connect(self.update_ui_focus)
         self.timer.start(update_time)
 
         # 5. 窗口系统设置
@@ -263,7 +264,6 @@ class IngameUI(QWidget):
     
     def on_function_clicked(self, config: dict):
         """统一处理功能按钮点击"""
-        self.give_back_focus()
         if self.task_worker and self.task_worker.isRunning():
             self.chat_view.add_message("已有任务正在运行中，请稍候...", "ai")
             self.switch_to_chat_view()
@@ -296,7 +296,7 @@ class IngameUI(QWidget):
         self.task_worker.progress.connect(self.on_task_progress)
         self.task_worker.finished.connect(self.on_task_finished)
         self.task_worker.start()
-        logger.info(f"Task started: {config['task_name']}")
+        self.task_running = True
     
     def start_task_with_path(self, config: dict, path_name: str):
         self.give_back_focus(title_text="⚪ 📦 奇想盒 [任务运行中，按 / 结束任务]")
@@ -311,7 +311,7 @@ class IngameUI(QWidget):
         self.task_worker.progress.connect(self.on_task_progress)
         self.task_worker.finished.connect(self.on_task_finished)
         self.task_worker.start()
-        logger.info(f"Task started: {config['task_name']} with path: {path_name}")
+        self.task_running = True
     
     def start_task_with_macro(self, config: dict, macro_name: str):
         self.give_back_focus(title_text="⚪ 📦 奇想盒 [任务运行中，按 / 结束任务]")
@@ -326,7 +326,7 @@ class IngameUI(QWidget):
         self.task_worker.progress.connect(self.on_task_progress)
         self.task_worker.finished.connect(self.on_task_finished)
         self.task_worker.start()
-        logger.info(f"Task started: {config['task_name']} with macro: {macro_name}")
+        self.task_running = True
     
     def on_task_progress(self, message: str):
         logger.info(f"Task progress: {message}")
@@ -350,9 +350,11 @@ class IngameUI(QWidget):
             self.expand_chat()
         else:
             self.acquire_focus()
+        self.task_running = False
     
     def on_agent_task_release_focus(self, title_text: str):
         self.give_back_focus(title_text)
+        self.task_running = True
     
     def on_agent_task_request_focus(self):
         if self.waiting_for_task_stop:
@@ -360,6 +362,7 @@ class IngameUI(QWidget):
             self.expand_chat()
         else:
             self.acquire_focus()
+        self.task_running = False
     
     def nativeEvent(self, eventType, message):
         event_str = str(eventType)
@@ -397,7 +400,7 @@ class IngameUI(QWidget):
         if self.saved_position != new_pos:
             self.saved_position = new_pos
             global_config.set("General", "windows_pos_x", new_pos.x())
-            global_config.set("General", "windows_pos_x", new_pos.y())
+            global_config.set("General", "windows_pos_y", new_pos.y())
             global_config.save()
             
     def resizeEvent(self, event):
@@ -467,22 +470,22 @@ class IngameUI(QWidget):
         win32gui.SetWindowLong(hwnd, win32con.GWL_EXSTYLE, win32gui.GetWindowLong(hwnd, win32con.GWL_EXSTYLE) & ~win32con.WS_EX_TRANSPARENT)
         self.setWindowState(Qt.WindowMinimized)
         self.setWindowState(Qt.WindowActive)
-        self.focus_on_game = False
+        self.ui_clickable = True
         self.update_focus_visual(True)
 
     def give_back_focus(self, title_text: str = "⚪ 📦 奇想盒 [按 / 激活窗口]"):
         hwnd = int(self.winId())
         win32gui.SetWindowLong(hwnd, win32con.GWL_EXSTYLE, win32gui.GetWindowLong(hwnd, win32con.GWL_EXSTYLE) | win32con.WS_EX_TRANSPARENT)
+        self.ui_clickable = False
         HANDLE_OBJ.set_foreground()
-        self.focus_on_game = True
         self.update_focus_visual(False, title_text)
 
     def position_window(self):
         self.move(self.saved_position)
 
     def on_slash_pressed(self):
-        if win32gui.GetForegroundWindow() != HANDLE_OBJ.get_handle():
-            return
+        # if win32gui.GetForegroundWindow() != HANDLE_OBJ.get_handle():
+        #     return
         if self.waiting_for_task_stop:
             return
         has_manual_task = self.task_worker and self.task_worker.isRunning()
@@ -499,13 +502,12 @@ class IngameUI(QWidget):
             return
         self.toggle_minimize()
     
-    def update_ui_position(self):
-        if self.isVisible():
-            if HANDLE_OBJ.is_foreground() and not self.focus_on_game:
+    def update_ui_focus(self):
+        if self.isVisible() and not self.task_running:
+            if HANDLE_OBJ.is_foreground() and self.ui_clickable:
                 self.give_back_focus()
-            elif not HANDLE_OBJ.is_foreground() and self.focus_on_game:
-                if not self.is_minimized:
-                    self.acquire_focus()
+            elif not HANDLE_OBJ.is_foreground() and not self.ui_clickable:
+                self.acquire_focus()
     
     def update_message(self, message: str, type="update_ai_message"):
         if self.chat_view:
