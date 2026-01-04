@@ -72,20 +72,20 @@ class StartGameTask(TaskTemplate):
                 continue
             elif text == "游戏运行中":
                 return
-            else:
-                if text != "启动游戏":
-                    # 点击更新，直到按钮变成“启动游戏”
-                    self.log_to_gui("更新游戏中……")
-                    launcher_handle.set_foreground()
-                    launcher_itt.move_and_click(AreaLaunchButton.center_position())
-                    while not self.need_stop():
-                        time.sleep(1)
-                        text = launcher_itt.ocr_single_line(AreaLaunchButton)
-                        if text == "启动游戏":
-                            break
+            elif text == "更新游戏":
+                self.log_to_gui("更新游戏中……")
                 launcher_handle.set_foreground()
                 launcher_itt.move_and_click(AreaLaunchButton.center_position())
-                self.log_to_gui("点击启动游戏按钮成功")
+                while not self.need_stop():
+                    time.sleep(1)
+                    text = launcher_itt.ocr_single_line(AreaLaunchButton)
+                    if text == "启动游戏":
+                        self.log_to_gui("更新游戏完成")
+                        break
+            elif text == "启动游戏":
+                launcher_handle.set_foreground()
+                launcher_itt.move_and_click(AreaLaunchButton.center_position())
+                self.log_to_gui("点击启动游戏按钮")
                 break
         if retry_time <= 0:
             self.task_stop("未找到启动游戏按钮")
