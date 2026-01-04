@@ -30,7 +30,13 @@ def check_game_ok(func):
                 "status": STATE_TYPE_ERROR,
                 "message": "奇想盒只支持16:9与16:10的游戏分辨率"
             }
-        logger.info(f"游戏分辨率正常：{width}x{height}")
+        logger.info(f"游戏分辨率：{width}x{height}")
+        if width > 2560 or width < 1920:
+            from whimbox.ingame_ui.ingame_ui import win_ingame_ui
+            msg = f"❗当前游戏分辨率：{width}x{height}。推荐分辨率为：1920x1080或1920x1200或2560x1440或2560x1600。如遇到bug，请修改游戏分辨率后重试\n"
+            if win_ingame_ui:
+                win_ingame_ui.update_message(msg, "update_ai_message")
+            logger.info(msg)
         return await func(**kwargs)
     return wrapper
 

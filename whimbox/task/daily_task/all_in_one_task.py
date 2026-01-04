@@ -9,7 +9,7 @@ from whimbox.task.daily_task.cvar import *
 from whimbox.task.common_task.start_game_task import StartGameTask
 from whimbox.map.detection.cvars import MAP_NAME_MIRALAND, MAP_NAME_UNSUPPORTED
 from whimbox.map.convert import convert_GameLoc_to_PngMapPx
-
+from whimbox.common.handle_lib import HANDLE_OBJ
 
 class AllInOneTask(TaskTemplate):
     def __init__(self):
@@ -27,6 +27,10 @@ class AllInOneTask(TaskTemplate):
     def step0(self):
         start_game_task = StartGameTask()
         task_result = start_game_task.task_run()
+        _, width, height = HANDLE_OBJ.check_shape()
+        if width > 2560 or width < 1920:
+            msg = f"当前游戏分辨率：{width}x{height}。推荐分辨率为：1920x1080或1920x1200或2560x1440或2560x1600。如遇到bug，请修改游戏分辨率后重试"
+            self.log_to_gui(msg)
         if task_result.status == STATE_TYPE_SUCCESS:
             self.log_to_gui(task_result.message)
             return "step1"
