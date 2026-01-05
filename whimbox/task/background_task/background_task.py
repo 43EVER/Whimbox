@@ -183,6 +183,8 @@ class BackgroundTask:
     def __init__(self, manager: BackgroundTaskManager):
         self.manager = manager
         self.check_interval = 0.1  # 画面检测间隔（秒）
+        if global_config.get_bool("Path", "high_performance_pc", False):
+            self.check_interval = 0.02
         self.was_paused = False  # 上一次循环是否处于暂停状态
         self.stop_event = threading.Event()  # 停止事件
 

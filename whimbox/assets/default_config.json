@@ -33,6 +33,10 @@
         "launcher_path": {
             "value": "",
             "description": "叠纸启动器路径(launcher.exe的完整路径)"
+        },
+        "high_performance_pc": {
+            "value": "false",
+            "description": "启用高性能模式(加快识别速度，电脑性能不足时，可能会变卡，请自行测试开启)"
         }
     },
     "BackgroundTask": {

@@ -60,7 +60,6 @@ class FunctionView(QWidget):
         
         # 后台任务相关
         self.background_checkboxes = {}  # 存储后台功能复选框
-        self.background_status_label = None  # 后台任务状态标签
         
         # 初始化UI
         self.init_ui()
@@ -215,7 +214,7 @@ class FunctionView(QWidget):
         
         # 标题行
         title_layout = QHBoxLayout()
-        title_layout.setSpacing(8)
+        title_layout.setSpacing(4)
         
         title = QLabel("自动小功能")
         title.setStyleSheet("""
@@ -228,20 +227,19 @@ class FunctionView(QWidget):
             }
         """)
         title_layout.addWidget(title)
-        
-        # 状态标签
-        self.background_status_label = QLabel("●")
-        self.background_status_label.setStyleSheet("""
+
+        sub_title = QLabel("觉得太慢了？可在设置中开启“高性能模式”")
+        sub_title.setStyleSheet("""
             QLabel {
-                font-size: 10pt;
-                color: #999;
+                font-size: 7pt;
+                color: #666666;
                 border: none;
                 background-color: transparent;
             }
         """)
-        title_layout.addWidget(self.background_status_label)
+        title_layout.addWidget(sub_title)
         title_layout.addStretch()
-        
+
         layout.addLayout(title_layout)
         
         # 功能复选框 - 每行两个
@@ -311,10 +309,6 @@ class FunctionView(QWidget):
                 # 没有功能启用但任务在运行，停止任务
                 background_manager.stop_background_task()
             
-            # 更新状态标签
-            is_running = background_manager.is_running()
-            self._update_status_label(is_running)
-            
             logger.info(f"后台功能设置成功: {feature.value} = {enabled}")
             
         except Exception as e:
@@ -324,27 +318,6 @@ class FunctionView(QWidget):
             checkbox.blockSignals(True)
             checkbox.setChecked(not enabled)
             checkbox.blockSignals(False)
-    
-    def _update_status_label(self, running: bool):
-        """更新状态标签"""
-        if running:
-            self.background_status_label.setStyleSheet("""
-                QLabel {
-                    font-size: 10pt;
-                    color: #4CAF50;
-                    border: none;
-                    background-color: transparent;
-                }
-            """)
-        else:
-            self.background_status_label.setStyleSheet("""
-                QLabel {
-                    font-size: 10pt;
-                    color: #999;
-                    border: none;
-                    background-color: transparent;
-                }
-            """)
     
     def set_all_buttons_enabled(self, enabled: bool):
         """设置所有按钮是否可用"""
@@ -367,10 +340,6 @@ class FunctionView(QWidget):
             # 恢复信号
             for checkbox in self.background_checkboxes.values():
                 checkbox.blockSignals(False)
-            
-            # 更新状态标签
-            is_running = background_manager.is_running()
-            self._update_status_label(is_running)
                 
         except Exception as e:
             logger.error(f"加载后台任务状态失败: {e}")
