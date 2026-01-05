@@ -234,13 +234,13 @@ def back_to_page_main():
     # 让UI返回到主界面
     stop_flag = get_current_stop_flag()
     while not stop_flag.is_set():
+        time.sleep(1)
         if itt.get_img_existence(IconDungeonFeature):
             itt.key_press(keybind.KEYBIND_BACK)
         elif itt.get_img_existence(IconPageMainFeature):
             break
         else:
             itt.key_press('esc')
-        time.sleep(1)
 
 def skip_to_page_main():
     # 采集时，如果遇到没有的东西，会自动弹出获取窗口，不断按f跳过直到回到主界面
