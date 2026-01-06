@@ -234,7 +234,7 @@ def back_to_page_main():
     # 让UI返回到主界面
     stop_flag = get_current_stop_flag()
     while not stop_flag.is_set():
-        time.sleep(1)
+        itt.wait_until_stable(threshold=0.95)
         if itt.get_img_existence(IconDungeonFeature):
             itt.key_press(keybind.KEYBIND_BACK)
         elif itt.get_img_existence(IconPageMainFeature):
