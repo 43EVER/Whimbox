@@ -86,7 +86,7 @@ xhsg_task_info_list = [
     {
         "key_words": ["星愿瓶", "合影"],
         "score": 200,
-        "priority": 0,
+        "priority": 4,
         "task_name": XHSG_TASK_BOTTLE_PHOTO
     },
     {
@@ -118,6 +118,18 @@ xhsg_task_info_list = [
         "score": 200,
         "priority": 0,
         "task_name": XHSG_TASK_BUBBLE_PHOTO
+    },
+    {
+        "key_words": ["动物互动", "3次"],
+        "score": 300,
+        "priority": 5,
+        "task_name": XHSG_TASK_TRANS_ANIMAL_THREE
+    },
+    {
+        "key_words": ["不同的动物"],
+        "score": 100,
+        "priority": 5,
+        "task_name": XHSG_TASK_TRANS_ANIMAL_ONE
     },
 ]
 
@@ -178,7 +190,7 @@ class XinghaiTask(TaskTemplate):
                 return None
 
         # 获得未完成任务列表
-        unfinished_task_list = []
+        self.unfinished_tasks = []
         button_list = [ButtonZxxyTask1, ButtonZxxyTask2, ButtonZxxyTask3, ButtonZxxyTask4, ButtonZxxyTask5]
         for i in range(5):
             if self.need_stop():
@@ -188,33 +200,13 @@ class XinghaiTask(TaskTemplate):
                 continue
             else:
                 self.log_to_gui(f"未完成任务：{unfinished_task['task_name']}")
-                unfinished_task_list.append(unfinished_task)
+                self.unfinished_task.append(unfinished_task)
         
-        # 根据优先级和分数，判断应该做什么任务
-        temp_score = self.current_score
-        unfinished_task_list.sort(
+        # 根据优先级和分数排序
+        self.unfinished_tasks.sort(
             key=lambda x: (x['priority'], x['score']),
             reverse=True
         )
-
-        # 根据分数和优先级完成其他任务
-        for task in unfinished_task_list:
-            if self.need_stop():
-                break
-            if task['priority'] == 0:
-                continue
-            if temp_score >= 500:
-                break
-            self.todo_list.append(task['task_name'])
-            temp_score += task['score']
-        
-        if len(self.todo_list) > 0:
-            self.log_to_gui(f"需要继续完成以下任务：{", ".join(self.todo_list)}")
-            return
-        else:
-            if self.current_score < 500:
-                self.log_to_gui("没办法凑齐分数了", is_error=True)
-                return "step5"
 
     @register_step("开始做星海拾光任务")
     def step4(self):
@@ -227,13 +219,31 @@ class XinghaiTask(TaskTemplate):
             XHSG_TASK_BOTTLE_PICKUP: AutoPathTask(path_name="星海拾光_拾取漂流瓶", excepted_num=1),
             XHSG_TASK_BOTTLE_DELIVERY: AutoPathTask(path_name="星海拾光_投递漂流瓶"),
             XHSG_TASK_TAKE_PHOTO: DailyPhotoTask(),
+            XHSG_TASK_BOTTLE_PHOTO: AutoPathTask(path_name="星海拾光_合影漂流瓶"),
+            XHSG_TASK_TRANS_ANIMAL_ONE: AutoPathTask(path_name="星海拾光_化身动物"),
+            XHSG_TASK_TRANS_ANIMAL_THREE: AutoPathTask(path_name="星海拾光_化身动物"),
         }
-        for task_name in self.todo_list:
-            if self.need_stop():
+        self.done_task_names = [] 
+        for task in self.unfinished_tasks:
+            if self.current_score >= 500 or self.need_stop():
                 break
+            task_name = task['task_name']
             if task_name in task_dict:
-                task = task_dict[task_name]
-                task.task_run()
+                # 如果已经完成变身动物3次任务，则变身动物1次的任务也肯定完成了
+                if task_name == XHSG_TASK_TRANS_ANIMAL_ONE and XHSG_TASK_TRANS_ANIMAL_THREE in self.done_task_names:
+                    self.current_score += task['score']
+                    self.done_task_names.append(task_name)
+                    continue
+                # 执行任务并加分
+                task_obj = task_dict[task_name]
+                result = task_obj.task_run()
+                if result.status == STATE_TYPE_SUCCESS:
+                    self.current_score += task['score']
+                    self.done_task_names.append(task_name)
+                else:
+                    self.log_to_gui(f"任务\"{task_name}\"失败，继续其他任务", is_error=True)
+            else:
+                self.log_to_gui(f"暂不支持任务\"{task_name}\"，继续其他任务", is_error=True)
 
     @register_step("领取星海拾光奖励")
     def step5(self):

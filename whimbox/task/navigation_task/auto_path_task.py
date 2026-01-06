@@ -189,6 +189,7 @@ class AutoPathTask(TaskTemplate):
             if self.target_point.action:
                 self.stop_move()
                 self.change_to_walk()
+                task_result = None
                 if self.target_point.action == ACTION_PICK_UP:
                     if not self.path_info.test_mode:
                         pickup_task = PickupTask()
@@ -241,41 +242,53 @@ class AutoPathTask(TaskTemplate):
                     if macro_name is not None:
                         from whimbox.task.minigame_task.minigame_task import MinigameTask
                         minigame_task = MinigameTask(macro_name)
-                        minigame_task.task_run()
+                        task_result = minigame_task.task_run()
                 elif self.target_point.action == ACTION_MACRO:
                     if not self.path_info.test_mode:
                         macro_name = self.target_point.action_params
                         if macro_name is not None:
                             from whimbox.task.macro_task.run_macro_task import RunMacroTask
                             macro_task = RunMacroTask(macro_name)
-                            macro_task.task_run()
+                            task_result = macro_task.task_run()
                     else:
                         self.log_to_gui("测试跑图路线中，不进行宏操作")
                         time.sleep(2)
                 elif self.target_point.action == ACTION_PLACE_ITEM:
                     from whimbox.task.daily_task.starsea_task.place_item_task import PlaceItemTask
                     place_item_task = PlaceItemTask()
-                    place_item_task.task_run()
+                    task_result = place_item_task.task_run()
                 elif self.target_point.action == ACTION_GROUP_CHAT:
                     from whimbox.task.daily_task.starsea_task.group_chat_task import GroupChatTask
                     group_chat_task = GroupChatTask()
-                    group_chat_task.task_run()
+                    task_result = group_chat_task.task_run()
                 elif self.target_point.action == ACTION_CHANGE_MUSIC:
                     from whimbox.task.daily_task.starsea_task.change_music_task import ChangeMusicTask
                     change_music_task = ChangeMusicTask()
-                    change_music_task.task_run()
+                    task_result = change_music_task.task_run()
                 elif self.target_point.action == ACTION_PICKUP_BOTTLE:
-                    from whimbox.task.daily_task.starsea_task.pickup_bottle_task import PickupBottleTask
-                    pickup_bottle_task = PickupBottleTask()
-                    task_result = pickup_bottle_task.task_run()
-                    self.merge_material_count_dict(task_result.data)
+                    if not self.path_info.test_mode:
+                        from whimbox.task.daily_task.starsea_task.pickup_bottle_task import PickupBottleTask
+                        pickup_bottle_task = PickupBottleTask()
+                        task_result = pickup_bottle_task.task_run()
+                        self.merge_material_count_dict(task_result.data)
+                    else:
+                        self.log_to_gui("测试跑图路线中，不拾取漂流瓶")
+                        time.sleep(2)
                 elif self.target_point.action == ACTION_DELIVERY_BOTTLE:
                     from whimbox.task.daily_task.starsea_task.delivery_bottle_task import DeliveryBottleTask
                     delivery_bottle_task = DeliveryBottleTask()
-                    result = delivery_bottle_task.task_run()
-                    if result.status == STATE_TYPE_ERROR:
-                        raise Exception(result.message)
-
+                    task_result = delivery_bottle_task.task_run()
+                elif self.target_point.action == ACTION_TAKE_PHOTO:
+                    from whimbox.task.photo_task.daily_photo_task import DailyPhotoTask
+                    daily_photo_task = DailyPhotoTask()
+                    task_result = daily_photo_task.task_run()
+                elif self.target_point.action == ACTION_TRANS_ANIMAL:
+                    from whimbox.task.daily_task.starsea_task.trans_animal_task import TransAnimalTask
+                    trans_animal_task = TransAnimalTask(times=int(self.target_point.action_params or 1))
+                    task_result = trans_animal_task.task_run()
+                    
+                if task_result is not None and task_result.status != STATE_TYPE_SUCCESS:
+                    raise Exception(task_result.message)
 
             if self.curr_target_point_id >= len(self.path_points) - 1:
                 # 走到终点了
@@ -371,6 +384,6 @@ class AutoPathTask(TaskTemplate):
 
 
 if __name__ == "__main__":
-    task = AutoPathTask(path_name="星海拾光_投递漂流瓶")
+    task = AutoPathTask(path_name="星海拾光_拾取漂流瓶")
     task_result = task.task_run()
     print(task_result.to_dict())
