@@ -13,6 +13,8 @@ class MonsterTask(TaskTemplate):
             self.level_name = global_config.get("Game", "monster_target")
         else:
             self.level_name = level_name
+        if '|' in self.level_name:
+            self.level_name = self.level_name.split('|')[0].strip()
     
 
     @register_step("正在前往魔物试炼幻境")
