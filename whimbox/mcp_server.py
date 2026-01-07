@@ -10,11 +10,42 @@ from whimbox.task.task_template import STATE_TYPE_SUCCESS, STATE_TYPE_ERROR
 from whimbox.common.logger import logger
 from whimbox.common.cvars import MCP_CONFIG
 from whimbox.common.handle_lib import HANDLE_OBJ
+from whimbox.common.notification import send_notification
 
 import socket
 import functools
 from fastmcp import FastMCP
 from starlette.responses import JSONResponse
+
+def windows_notify(func):
+    """
+    Windows 通知装饰器
+    在方法执行后，将返回结果中的 message 通过 Windows 通知显示
+    """
+    @functools.wraps(func)
+    async def wrapper(**kwargs):
+        result = await func(**kwargs)
+        
+        # 提取并发送通知
+        if isinstance(result, dict) and 'message' in result:
+            message = result.get('message', '')
+            status = result.get('status', '')
+            
+            # 根据状态设置标题
+            if status == STATE_TYPE_SUCCESS:
+                title = "奇想盒 - 任务完成"
+            else:
+                title = "奇想盒 - 任务失败"
+            
+            # 发送通知
+            try:
+                send_notification(title=title, message=message, status=status)
+            except Exception as e:
+                logger.debug(f"发送通知失败（不影响主功能）: {e}")
+        
+        return result
+    return wrapper
+
 
 def check_game_ok(func):
     @functools.wraps(func)
@@ -258,6 +289,7 @@ async def daily_photo_task() -> dict:
     return task_result.to_dict()
 
 @mcp.tool()
+@windows_notify
 async def all_in_one_task() -> dict:
     """
     一条龙，一次性完成所有任务。无论结果如何，只调用一次。

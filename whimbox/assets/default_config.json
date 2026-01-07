@@ -37,6 +37,10 @@
         "high_performance_pc": {
             "value": "false",
             "description": "启用高性能模式(加快识别速度，电脑性能不足时，可能会变卡，请自行测试开启)"
+        },
+        "enable_windows_notification": {
+            "value": "false",
+            "description": "一条龙完成是否发送Windows通知"
         }
     },
     "BackgroundTask": {
