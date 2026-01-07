@@ -276,21 +276,16 @@ class SettingsDialog(QDialog):
         # 标签和描述
         label_text = config_item['description']
         
-        label = QLabel(label_text)
-        label.setWordWrap(True)
-        label.setStyleSheet("""
-            QLabel {
-                color: #666666;
-                font-size: 8pt;
-            }
-        """)
-        item_layout.addWidget(label)
-        
         # 根据值类型创建不同的输入控件
         value = config_item.get('value', '')
         
         # 判断是否是布尔值
         if isinstance(value, bool) or (isinstance(value, str) and value.lower() in ['true', 'false']):
+            # 布尔值：使用水平布局，QCheckBox在前，QLabel在后
+            horizontal_layout = QHBoxLayout()
+            horizontal_layout.setContentsMargins(0, 0, 0, 0)
+            horizontal_layout.setSpacing(4)
+            
             input_widget = QCheckBox()
             is_checked = value if isinstance(value, bool) else value.lower() == 'true'
             input_widget.setChecked(is_checked)
@@ -304,48 +299,73 @@ class SettingsDialog(QDialog):
                     height: 12px;
                 }
             """)
-        # 判断是否是数字
-        elif isinstance(value, (int, float)) or (isinstance(value, str) and value.replace('.', '').replace('-', '').isdigit()):
-            input_widget = QLineEdit(str(value))
-            input_widget.setPlaceholderText("请输入数字")
-            # 设置验证器
-            if isinstance(value, int) or (isinstance(value, str) and '.' not in value):
-                input_widget.setValidator(QIntValidator())
-            else:
-                input_widget.setValidator(QDoubleValidator())
-            input_widget.setStyleSheet("""
-                QLineEdit {
-                    padding: 4px;
-                    border: 1px solid #BDBDBD;
-                    border-radius: 4px;
+            
+            label = QLabel(label_text)
+            label.setWordWrap(True)
+            label.setStyleSheet("""
+                QLabel {
+                    color: #666666;
                     font-size: 8pt;
-                    background-color: white;
-                }
-                QLineEdit:focus {
-                    border: 2px solid #2196F3;
-                }
-            """)
-        else:
-            # 默认使用文本输入
-            input_widget = QLineEdit(str(value))
-            input_widget.setPlaceholderText("请输入值")
-            input_widget.setStyleSheet("""
-                QLineEdit {
-                    padding: 4px;
-                    border: 1px solid #BDBDBD;
-                    border-radius: 4px;
-                    font-size: 8pt;
-                    background-color: white;
-                }
-                QLineEdit:focus {
-                    border: 2px solid #2196F3;
                 }
             """)
             
-            # 为输入框添加自动提示功能
-            self.add_completer_if_needed(input_widget, key)
-        
-        item_layout.addWidget(input_widget)
+            horizontal_layout.addWidget(input_widget)
+            horizontal_layout.addWidget(label, 1)  # 1表示拉伸因子，让label占据剩余空间
+            item_layout.addLayout(horizontal_layout)
+        else:
+            # 非布尔值：保持原有的垂直布局（label在上，input在下）
+            label = QLabel(label_text)
+            label.setWordWrap(True)
+            label.setStyleSheet("""
+                QLabel {
+                    color: #666666;
+                    font-size: 8pt;
+                }
+            """)
+            item_layout.addWidget(label)
+            
+            # 判断是否是数字
+            if isinstance(value, (int, float)) or (isinstance(value, str) and value.replace('.', '').replace('-', '').isdigit()):
+                input_widget = QLineEdit(str(value))
+                input_widget.setPlaceholderText("请输入数字")
+                # 设置验证器
+                if isinstance(value, int) or (isinstance(value, str) and '.' not in value):
+                    input_widget.setValidator(QIntValidator())
+                else:
+                    input_widget.setValidator(QDoubleValidator())
+                input_widget.setStyleSheet("""
+                    QLineEdit {
+                        padding: 4px;
+                        border: 1px solid #BDBDBD;
+                        border-radius: 4px;
+                        font-size: 8pt;
+                        background-color: white;
+                    }
+                    QLineEdit:focus {
+                        border: 2px solid #2196F3;
+                    }
+                """)
+            else:
+                # 默认使用文本输入
+                input_widget = QLineEdit(str(value))
+                input_widget.setPlaceholderText("请输入值")
+                input_widget.setStyleSheet("""
+                    QLineEdit {
+                        padding: 4px;
+                        border: 1px solid #BDBDBD;
+                        border-radius: 4px;
+                        font-size: 8pt;
+                        background-color: white;
+                    }
+                    QLineEdit:focus {
+                        border: 2px solid #2196F3;
+                    }
+                """)
+                
+                # 为输入框添加自动提示功能
+                self.add_completer_if_needed(input_widget, key)
+            
+            item_layout.addWidget(input_widget)
         
         # 保存控件引用
         self.input_widgets[f"{section}.{key}"] = input_widget
