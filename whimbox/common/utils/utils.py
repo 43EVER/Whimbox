@@ -191,6 +191,8 @@ def is_number(s):
 
     return False
 
+def is_chinese(text: str) -> bool:
+    return any('\u4e00' <= char <= '\u9fff' for char in text)
 
 def float2str(n, decimal=3):
     """

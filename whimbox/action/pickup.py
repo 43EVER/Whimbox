@@ -1,8 +1,7 @@
 from whimbox.task.task_template import TaskTemplate, register_step
 from whimbox.interaction.interaction_core import itt
 from whimbox.ui.ui_assets import *
-from whimbox.common.cvars import DEBUG_MODE
-from whimbox.common.utils.ui_utils import skip_to_page_main
+from whimbox.common.utils.utils import is_chinese
 from whimbox.common.keybind import keybind
 from whimbox.common.utils.ui_utils import wait_until_appear
 import time, re
@@ -15,7 +14,7 @@ class PickupTask(TaskTemplate):
     @register_step("开始采集")
     def step1(self):
         while not self.need_stop():
-            if wait_until_appear(IconPickupFeature, area=AreaPickup, retry_time=2):
+            if wait_until_appear(IconPickupFeature, area=AreaPickup, retry_time=1):
                 itt.key_press(keybind.KEYBIND_INTERACTION)
                 time.sleep(0.5) # 等待采集结果文字出现
                 texts = itt.ocr_multiple_lines(AreaMaterialGetText)
@@ -31,7 +30,12 @@ class PickupTask(TaskTemplate):
                                 self.material_count_dict[pickup_item] += 1
                             else:
                                 self.material_count_dict[pickup_item] = 1
-                            break
+                        elif is_chinese(text):
+                            pickup_item = text
+                            if pickup_item in self.material_count_dict:
+                                self.material_count_dict[pickup_item] += 1
+                            else:
+                                self.material_count_dict[pickup_item] = 1
             else:
                 break
         

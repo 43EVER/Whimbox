@@ -227,7 +227,8 @@ def wait_until_appear(obj, area=None, retry_time=3):
         else:
             return False
         retry_time -= 1
-        time.sleep(1)
+        if retry_time > 0:
+            time.sleep(1)
     return False
 
 
