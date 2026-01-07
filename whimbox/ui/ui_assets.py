@@ -147,7 +147,7 @@ ButtonXhsgBottleClose = Button(print_log=LOG_WHEN_TRUE, anchor=ANCHOR_CENTER)
 TextDeliveryBottle = Text("投递", cap_area = AreaPickup)
 
 # 换装界面
-ButtonWardrobeDressDIY = Button(print_log=LOG_WHEN_TRUE, anchor=ANCHOR_RIGHT_CENTER)
+ButtonWardrobeDressDIY = Button(print_log=LOG_WHEN_TRUE, anchor=ANCHOR_LEFT_CENTER)
 
 # 能力配置界面
 AreaWardrobeTab3 = Area(anchor=ANCHOR_TOP_CENTER)
