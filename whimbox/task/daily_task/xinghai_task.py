@@ -170,8 +170,8 @@ class XinghaiTask(TaskTemplate):
 
     @register_step("查看星海拾光具体任务")
     def step3(self):
-        def check_task(task_btn: Button):
-            task_btn.click()
+        def check_task(click_pos):
+            itt.move_and_click(click_pos, anchor=ANCHOR_CENTER)
             time.sleep(0.3)
             if not itt.get_img_existence(IconXhsgTaskFinished):
                 task_text = itt.ocr_single_line(AreaXhsgTaskText)
@@ -190,11 +190,10 @@ class XinghaiTask(TaskTemplate):
 
         # 获得未完成任务列表
         self.unfinished_tasks = []
-        button_list = [ButtonZxxyTask1, ButtonZxxyTask2, ButtonZxxyTask3, ButtonZxxyTask4, ButtonZxxyTask5]
-        for i in range(5):
+        for click_pos in XHSG_TASK_CENTERS:
             if self.need_stop():
                 break
-            unfinished_task = check_task(button_list[i])
+            unfinished_task = check_task(click_pos)
             if unfinished_task == None:
                 continue
             else:

@@ -12,7 +12,7 @@ while 1:
     cap = itt.capture()
     # cap = cv2.cvtColor(cap, cv2.COLOR_BGRA2GRAY)
     # _, cap = cv2.threshold(cap, 210, 255, cv2.THRESH_BINARY)
-    lower_white = [0, 0, 230]
-    upper_white = [180, 60, 255]
-    cap = process_with_hsv_limit(cap, lower_white, upper_white)
+    # lower_white = [0, 0, 230]
+    # upper_white = [180, 60, 255]
+    # cap = process_with_hsv_limit(cap, lower_white, upper_white)
     cv2.imwrite(ROOT_PATH + '\\' + "..\\tools\\snapshot\\" + str(time.time()) + ".png", cap) # type: ignore

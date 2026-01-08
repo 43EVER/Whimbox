@@ -284,21 +284,6 @@
   "ButtonZxxyRewarded": {
     "rel_path": "imgs\\Windows\\UI\\zxxy\\ButtonZxxyRewarded.png"
   },
-  "ButtonZxxyTask1": {
-    "rel_path": "imgs\\Windows\\UI\\zxxy\\ButtonZxxyTask1.png"
-  },
-  "ButtonZxxyTask2": {
-    "rel_path": "imgs\\Windows\\UI\\zxxy\\ButtonZxxyTask2.png"
-  },
-  "ButtonZxxyTask3": {
-    "rel_path": "imgs\\Windows\\UI\\zxxy\\ButtonZxxyTask3.png"
-  },
-  "ButtonZxxyTask4": {
-    "rel_path": "imgs\\Windows\\UI\\zxxy\\ButtonZxxyTask4.png"
-  },
-  "ButtonZxxyTask5": {
-    "rel_path": "imgs\\Windows\\UI\\zxxy\\ButtonZxxyTask5.png"
-  },
   "IconAbilityAnimal": {
     "rel_path": "imgs\\Windows\\UI\\wardrobe\\IconAbilityAnimal.png"
   },
