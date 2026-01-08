@@ -31,6 +31,10 @@ class JihuaTask(TaskTemplate):
 
     @register_step("正在前往素材激化幻境")
     def step1(self):
+        if self.target_material == '不做素材激化幻境':
+            self.log_to_gui("已设置不做素材激化幻境，跳过")
+            self.update_task_result(status=STATE_TYPE_FAILED, message="已设置不做素材激化幻境，跳过")
+            return STEP_NAME_FINISH
         ui_control.goto_page(page_huanjing_jihua)
 
 
