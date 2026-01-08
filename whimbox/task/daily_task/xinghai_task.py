@@ -259,6 +259,9 @@ class XinghaiTask(TaskTemplate):
     @register_step("退出星海拾光")
     def step6(self):
         ui_control.goto_page(page_main)
+        self.log_to_gui("传送回无界枢纽挂机")
+        map_loc = convert_GameLoc_to_PngMapPx([-35070.57421875, 44421.59765625], MAP_NAME_STARSEA)
+        nikki_map.bigmap_tp(map_loc, MAP_NAME_STARSEA)
 
 if __name__ == "__main__":
     xinghai_task = XinghaiTask()
