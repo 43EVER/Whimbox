@@ -384,7 +384,6 @@ class AutoPathTask(TaskTemplate):
 
     @register_step("结束自动跑图")
     def step2(self):
-        self.clear_all()
         if len(self.material_count_dict) > 0:
             message = "自动跑图完成，获得材料："
             res = []
