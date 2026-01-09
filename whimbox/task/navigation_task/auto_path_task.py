@@ -236,7 +236,9 @@ class AutoPathTask(TaskTemplate):
                         self.log_to_gui("测试跑图路线中，不进行钓鱼")
                         time.sleep(2)
                 elif self.target_point.action == ACTION_BIG:
-                    ability_manager.change_ability(ABILITY_NAME_BIG)
+                    from whimbox.action.big import BigTask
+                    big_task = BigTask()
+                    task_result = big_task.task_run()
                 elif self.target_point.action == ACTION_WAIT:
                     wait_time = self.target_point.action_params
                     if wait_time is None:

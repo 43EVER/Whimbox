@@ -1,5 +1,5 @@
 from whimbox.common.timer_module import AdvanceTimer
-from whimbox.task.task_template import TaskTemplate, register_step
+from whimbox.task.task_template import *
 from whimbox.interaction.interaction_core import itt
 from whimbox.ability.ability import ability_manager
 from whimbox.ability.cvar import *
@@ -34,7 +34,9 @@ class MaterialTrackBaseTask(TaskTemplate):
 
     @register_step("切换能力")
     def step1(self):
-        ability_manager.change_ability(self.ability_name)
+        if not ability_manager.change_ability(self.ability_name):
+            self.update_task_result(status=STATE_TYPE_FAILED, message="切换能力失败")
+            return STEP_NAME_FINISH
 
     @register_step("开启材料追踪")
     def step2(self):

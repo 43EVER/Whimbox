@@ -10,7 +10,9 @@ class FlourishTask(TaskTemplate):
     
     @register_step("开始芳间巡游")
     def step1(self):
-        ability_manager.change_ability(ABILITY_NAME_FLOURISH)
+        if not ability_manager.change_ability(ABILITY_NAME_FLOURISH):
+            self.update_task_result(status=STATE_TYPE_FAILED, message="切换芳间巡游能力失败")
+            return STEP_NAME_FINISH
         itt.right_click()
         time.sleep(4)
         itt.key_press(keybind.KEYBIND_ABILITY_DERIVATION_WORLD_1)

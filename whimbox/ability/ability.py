@@ -205,8 +205,10 @@ class AbilityManager:
                 ability_key = str(global_config.get_int('Game', 'ability_key'))
                 if self._set_ability(ability_name, ability_key):
                     key = ability_key
-        
-        key = self.get_ability_keybind(key)
+                else:
+                    key = None
+        if key:
+            key = self.get_ability_keybind(key)
 
         ui_control.goto_page(page_main)
         if key:

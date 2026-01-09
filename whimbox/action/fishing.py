@@ -1,18 +1,15 @@
 import time
 from enum import Enum
-import cv2
 import re
 
-from whimbox.common.cvars import CV_DEBUG_MODE
 from whimbox.common.timer_module import AdvanceTimer
 from whimbox.common.utils.ui_utils import skip_to_page_main
-from whimbox.task.task_template import TaskTemplate, register_step
+from whimbox.task.task_template import *
 from whimbox.interaction.interaction_core import itt
 from whimbox.ui.page_assets import page_main
 from whimbox.ui.ui import ui_control
 from whimbox.ui.ui_assets import *
 from whimbox.common.utils.img_utils import count_px_with_hsv_limit
-from whimbox.common.utils.posi_utils import union_bbox
 from whimbox.ability.ability import ability_manager
 from whimbox.ability.cvar import ABILITY_NAME_FISH
 from whimbox.common.logger import logger
@@ -146,7 +143,9 @@ class FishingTask(TaskTemplate):
 
     @register_step("切换钓鱼能力")
     def step1(self):
-        ability_manager.change_ability(ABILITY_NAME_FISH)
+        if not ability_manager.change_ability(ABILITY_NAME_FISH):
+            self.update_task_result(status=STATE_TYPE_FAILED, message="切换钓鱼能力失败")
+            return STEP_NAME_FINISH
 
     @register_step("开始钓鱼")
     def step2(self):
