@@ -141,7 +141,7 @@ class UI():
                 
                 # itt.delay(1, comment="goto_page is waiting for page transition")
                 logger.info("waiting for page transition")
-                itt.wait_until_stable(threshold=0.95)
+                itt.wait_until_stable(threshold=0.97)
                 # Handle loading screen
                 self.ui_additional()
                 logger.info("page transition completed")
