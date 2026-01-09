@@ -104,7 +104,7 @@ xhsg_task_info_list = [
     {
         "key_words": ["星芒之翼", "合影"],
         "score": 200,
-        "priority": 0,
+        "priority": 4,
         "task_name": XHSG_TASK_PLANE_PHOTO
     },
     {
@@ -220,6 +220,7 @@ class XinghaiTask(TaskTemplate):
             XHSG_TASK_BOTTLE_PHOTO: AutoPathTask(path_name="星海拾光_合影漂流瓶"),
             XHSG_TASK_TRANS_ANIMAL_ONE: AutoPathTask(path_name="星海拾光_化身动物"),
             XHSG_TASK_TRANS_ANIMAL_THREE: AutoPathTask(path_name="星海拾光_化身动物"),
+            XHSG_TASK_PLANE_PHOTO: AutoPathTask(path_name="星海拾光_合影星芒之翼"),
         }
         self.done_task_names = [] 
         for task in self.unfinished_tasks:
