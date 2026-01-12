@@ -112,9 +112,9 @@ class FishingTask(TaskTemplate):
             if self.get_current_state() != FishingState.REEL_IN:
                 break
             gap_time = time.time() - start_time
-            if gap_time < 0.2:
+            if gap_time < 0.15:
                 # 避免鼠标点击过快，导致吞鼠标事件
-                time.sleep(0.2 - gap_time)
+                time.sleep(0.15 - gap_time)
 
     def handle_skip(self):
         self.log_to_gui("状态: 跳过")
@@ -134,6 +134,9 @@ class FishingTask(TaskTemplate):
             if match:
                 fish_name = match.group(1)
                 self.log_to_gui(f"获得{fish_name}")
+                # 通过材料名再判断一下钓鱼类型，避免误判
+                if "陨星" in fish_name:
+                    self.fishing_type = FISHING_TYPE_HOME
                 if fish_name in self.material_count_dict:
                     self.material_count_dict[fish_name] += 1
                 else:
@@ -156,6 +159,7 @@ class FishingTask(TaskTemplate):
             if self.fishing_type == FISHING_TYPE_HOME and fish_time >= 5: # 家园钓星最多钓5次
                 break
             res = self.fishing_loop()
+            itt.delay(0.5, comment="稍等一下再开始钓鱼，避免太快吞操作")
             if res == FishingResult.SUCCESS:
                 fish_time += 1
             elif res == FishingResult.NO_FISH:
@@ -198,7 +202,8 @@ class FishingTask(TaskTemplate):
                 break
 
         # 判断钓鱼类型
-        self.fishing_type = self.get_fishing_type()
+        if self.fishing_type is None:
+            self.fishing_type = self.get_fishing_type()
         # 开始钓鱼
         logger.info("进入钓鱼状态")
         idle_timer = AdvanceTimer(30) # 30秒如果没有鱼，就说明钓鱼位置错了
@@ -264,5 +269,5 @@ if __name__ == "__main__":
     # task.task_run()
     from whimbox.common.utils.img_utils import IMG_RATE
     while True:
-        time.sleep(0.2)
-        print(task.get_current_state())
+        time.sleep(1)
+        print(task.get_fishing_type())
