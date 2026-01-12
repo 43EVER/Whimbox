@@ -138,14 +138,15 @@ class UI():
                         logger.warning(f"未找到按钮：{button.text}")
                         success = False
                         break
-                
-                # itt.delay(1, comment="goto_page is waiting for page transition")
-                logger.info("waiting for page transition")
-                itt.wait_until_stable(threshold=0.97)
+
+                itt.wait_until_stable(threshold=0.95)
                 # Handle loading screen
                 self.ui_additional()
                 logger.info("page transition completed")
                 
+                # 移动鼠标到左上角，避免触发某些UI的悬停样式，导致特征识别失败
+                itt.move_to((0, 0))
+
                 # Verify we reached the expected page
                 if not to_page.is_current_page(itt):
                     logger.warning(f"Expected to be at {to_page}, but verification failed. Retrying...")

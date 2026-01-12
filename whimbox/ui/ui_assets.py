@@ -17,13 +17,13 @@ IconGachaFeature = ImgIcon(print_log=LOG_NONE, threshold=0.99, anchor=ANCHOR_TOP
 IconShopFeature = ImgIcon(print_log=LOG_NONE, threshold=0.99, anchor=ANCHOR_TOP_LEFT)
 # 登录界面特征
 # IconPageLoginFeature = ImgIcon(print_log=LOG_ALL, threshold=0.90, hsv_limit=([0, 0, 220], [179, 50, 255]))
-AreaLoginOCR = Area(anchor=ANCHOR_CENTER, expand=True)
+AreaLoginOCR = Area(anchor=ANCHOR_BOTTOM_CENTER)
 AreaLaunchButton = Area()
 # 聊天框特征
 IconPageChatFeature = ImgIcon(print_log=LOG_WHEN_TRUE, anchor=ANCHOR_BOTTOM_LEFT)
 ButtonPageChatClose = Button(print_log=LOG_WHEN_TRUE, anchor=ANCHOR_TOP_LEFT)
 # 小月卡特征
-IconDailyRewardFeature1 = ImgIcon(print_log=LOG_WHEN_TRUE, threshold=0.99, anchor=ANCHOR_CENTER)
+IconDailyRewardFeature1 = ImgIcon(print_log=LOG_WHEN_TRUE, threshold=0.90, hsv_limit=([20, 45, 230], [30, 95, 255]), anchor=ANCHOR_CENTER)
 IconDailyRewardFeature2 = ImgIcon(print_log=LOG_WHEN_TRUE, threshold=0.99, anchor=ANCHOR_CENTER)
 
 
@@ -119,6 +119,7 @@ ButtonDigConfirm = Button(print_log=LOG_WHEN_TRUE)
 ButtonDigTime20h = Button(print_log=LOG_WHEN_TRUE, threshold=0.95)
 
 # 朝夕心愿相关
+AreaZxxyEnergy = Area(anchor=ANCHOR_CENTER)
 ButtonZxxyEntrance = Button(print_log=LOG_WHEN_TRUE, anchor=ANCHOR_CENTER)
 IconZxxyFeature = ImgIcon(print_log=LOG_WHEN_TRUE, threshold=0.90, gray_limit=(180, 255), anchor=ANCHOR_RIGHT_CENTER)
 AreaZxxyScore = Area(anchor=ANCHOR_RIGHT_CENTER)

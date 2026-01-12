@@ -234,7 +234,7 @@ class InteractionBGD:
             return False
                 
 
-    def wait_until_stable(self, threshold = 0.9995, timeout = 10):
+    def wait_until_stable(self, threshold = 0.9995, timeout = 5):
         timeout_timer = TimeoutTimer(timeout)
         last_cap = self.capture()
 

@@ -2,7 +2,6 @@
 美鸭梨挖掘
 """
 
-import enum
 from whimbox.task.task_template import *
 from whimbox.ui.ui import ui_control
 from whimbox.ui.page_assets import *
