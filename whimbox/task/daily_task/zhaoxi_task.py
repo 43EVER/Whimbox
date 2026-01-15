@@ -146,8 +146,8 @@ class ZhaoxiTask(TaskTemplate):
                 continue
             else:
                 if unfinished_task['task_name'] == DAILY_TASK_COST_ENERGY:
-                    index1 = task_text.find("消耗") + 2
-                    index2 = task_text.find("点")
+                    index1 = task_text.rfind("消耗") + 2
+                    index2 = task_text.rfind("点活跃能量")
                     energy_text = task_text[index1 : index2]
                     try:
                         used_energy = int(energy_text.split("/")[0])
