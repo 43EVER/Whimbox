@@ -43,7 +43,8 @@ class DigTaskV2(TaskTemplate):
     def step3(self):
         if wait_until_appear_then_click(ButtonDigAgain):
             self.update_task_result(message=f"成功一键收获并再次挖掘", data=True)
-        self.update_task_result(status=STATE_TYPE_FAILED, message="未弹出挖掘结果窗口", data=False)
+        else:
+            self.update_task_result(status=STATE_TYPE_FAILED, message="未弹出挖掘结果窗口", data=False)
         return "step4"
 
     @register_step("退出美鸭梨挖掘")
