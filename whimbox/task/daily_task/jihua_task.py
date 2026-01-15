@@ -51,7 +51,7 @@ class JihuaTask(TaskTemplate):
             raise Exception("未进入素材激化幻境")
         
         retry_time = 3
-        while retry_time > 0:
+        while not self.need_stop() and retry_time > 0:
             itt.key_down(keybind.KEYBIND_FORWARD)
             time.sleep(0.8)
             itt.key_up(keybind.KEYBIND_FORWARD)

@@ -102,7 +102,7 @@ class ZhaoxiTask(TaskTemplate):
         ui_control.goto_page(page_zxxy)
         try:
             itt.wait_until_stable(threshold=0.95)
-            score_str = itt.ocr_single_line(AreaZxxyScore)
+            score_str = itt.ocr_single_line(AreaZxxyScore, hsv_limit=([0, 0, 250], [0, 0, 255]))
             score = int(score_str.strip())
             if score % 100 != 0:
                 raise Exception(f"朝夕心愿分数识别异常:{score_str}")

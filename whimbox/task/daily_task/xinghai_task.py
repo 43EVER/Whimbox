@@ -155,7 +155,7 @@ class XinghaiTask(TaskTemplate):
         ui_control.goto_page(page_xhsg) 
         try:
             itt.wait_until_stable(threshold=0.95)
-            score_str = itt.ocr_single_line(AreaXhsgScore)
+            score_str = itt.ocr_single_line(AreaXhsgScore, hsv_limit=([0, 0, 250], [0, 0, 255]))
             score = int(score_str.strip())
             if score % 100 != 0:
                 raise Exception(f"星海拾光分数识别异常:{score_str}")
@@ -267,4 +267,5 @@ class XinghaiTask(TaskTemplate):
 
 if __name__ == "__main__":
     xinghai_task = XinghaiTask()
-    print(xinghai_task.task_run())
+    # print(xinghai_task.task_run())
+    xinghai_task.step2()
