@@ -29,14 +29,13 @@ class XinghaiRunTask(TaskTemplate):
     @register_step("查看星光结晶位置")
     def step2(self):
         ui_control.goto_page(page_bigmap)
-        box = find_game_img(GameImgStarCrystal, itt.capture(), threshold=0.70, scale=1)
+        # 阈值0.9，搜索不在当前地图画面的结晶，并点击跳转
+        box = find_game_img(GameImgStarCrystal, itt.capture(), threshold=0.90, scale=1)
         if box:
             itt.move_and_click(area_center(box))
             itt.wait_until_stable(threshold=0.9995)
-        else:
-            self.update_task_result(status=STATE_TYPE_FAILED, message="地图上未找到星光结晶")
-            return "step_finish"
 
+        # 阈值0.7，搜索在当前地图画面的结晶
         boxes = find_game_img(GameImgStarCrystal, itt.capture(), threshold=0.70, scale=1, count=3)
         if boxes and len(boxes) > 0:
             centers = [area_center(box) for box in boxes]
@@ -75,6 +74,7 @@ class XinghaiRunTask(TaskTemplate):
         auto_path_dict = {
             "星海拾光_星光结晶收集_星梦群屿": (2878.8, 2164.0),
             "星海拾光_星光结晶收集_泡泡梦屿": (3120.0, 1908.3),
+            "星海拾光_星光结晶收集_无界枢纽": (1694.0, 2002.0),
         }
         for path_name, loc in auto_path_dict.items():
             if loc[0]-50 <self.target_loc[0] < loc[0]+50 and loc[1]-50 <self.target_loc[1] < loc[1]+50:
