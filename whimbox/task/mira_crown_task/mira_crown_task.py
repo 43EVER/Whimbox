@@ -44,6 +44,8 @@ class MiraCrownTask(TaskTemplate):
     @register_step("进入挑战")
     def step3(self):
         itt.wait_until_stable(0.95)
+        if wait_until_appear_then_click(ButtonMiraCrownRank, retry_time=1):
+            itt.wait_until_stable(0.95)
         # 如果是快速奖励进来的，要从第二个门进去（第三个门是锁住的），不然从第三个门进去
         if not self.is_quick_reward:
             AreaMiraCrownThirdDoor.click()
