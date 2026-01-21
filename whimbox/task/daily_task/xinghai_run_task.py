@@ -75,6 +75,7 @@ class XinghaiRunTask(TaskTemplate):
             "星海拾光_星光结晶收集_星梦群屿": (2878.8, 2164.0),
             "星海拾光_星光结晶收集_泡泡梦屿": (3120.0, 1908.3),
             "星海拾光_星光结晶收集_无界枢纽": (1694.0, 2002.0),
+            "星海拾光_星光结晶收集_晶簇之谷": (2264.0, 1469.2),
         }
         for path_name, loc in auto_path_dict.items():
             if loc[0]-50 <self.target_loc[0] < loc[0]+50 and loc[1]-50 <self.target_loc[1] < loc[1]+50:
