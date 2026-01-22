@@ -165,7 +165,7 @@ class MoveController(AdvanceThreading):
         self.move_ahead_timer = None
         self.last_posi = None # 让下次开始移动时，速度延用停止移动前的估算速度
         itt.key_up(keybind.KEYBIND_FORWARD)
-        logger.debug('stop move ahead')
+        # logger.debug('stop move ahead')
 
     def switch_move(self):
         if self.is_moving and self.move_ahead_timer.reached():

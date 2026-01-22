@@ -102,23 +102,7 @@ class Map(MiniMap, BigMap):
         if len(self.history_position_list) > 20:
             self.history_position_list.pop(0)
         return list(r_posi)
-
-    def check_stuck(self):
-        """检查角色是否卡住（历史位置都在同一地点附近）
-        """
-        if len(self.history_position_list) < 20:
-            return False
         
-        # 使用第一个位置作为参考点
-        reference_pos = self.history_position_list[0]
-        
-        # 检查所有位置是否都在参考点的2px范围内
-        for pos in self.history_position_list:
-            if euclidean_distance(reference_pos, pos) > 2:
-                return False
-        
-        return True
-
 
     def update_region_and_map_name(self, use_cache=False) -> str:
         if use_cache and self.region_name is not None and self.map_name is not None:
