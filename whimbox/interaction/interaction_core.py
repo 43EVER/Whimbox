@@ -432,7 +432,7 @@ class InteractionBGD:
         self.operation_lock.acquire()
         if key == "mouse_left":
             self.itt_exec.left_click()
-        if key == "mouse_right":
+        elif key == "mouse_right":
             self.itt_exec.right_click()
         elif key == "mouse_middle":
             self.itt_exec.middle_click()

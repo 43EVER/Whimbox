@@ -109,7 +109,8 @@ class FishingTask(TaskTemplate):
         while not self.need_stop():
             start_time = time.time()
             itt.key_press(keybind.KEYBIND_FISHING_REEL_IN)
-            if self.get_current_state() != FishingState.REEL_IN:
+            cap = itt.capture(anchor_posi=AreaFishingIcons.position)
+            if not itt.get_img_existence(IconFishingReelIn, cap=cap):
                 break
             gap_time = time.time() - start_time
             if gap_time < 0.18:
@@ -254,7 +255,7 @@ class FishingTask(TaskTemplate):
                 # 所以连续3次判断为UNKNOWN，才认为是结束了
                 unknown_state_count += 1
                 logger.debug(f"连续{unknown_state_count}次识别为UNKNOWN")
-                if unknown_state_count > 2:
+                if unknown_state_count > 4:
                     self.handle_skip()
                     break
                 else:
