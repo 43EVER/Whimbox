@@ -196,10 +196,8 @@ class BackgroundTask:
             self.check_interval = 0.02
         self.was_paused = False  # 上一次循环是否处于暂停状态
         self.stop_event = threading.Event()  # 停止事件
-
-        self.mouse_listener = mouse.Listener(on_click=self.on_mouse_click)
-        self.mouse_listener.daemon = True
-        self.mouse_listener.start()
+        self.mouse_listener = None
+        self._start_mouse_listener()
 
         self.is_auto_click = False
         self.need_flourish = False
@@ -214,6 +212,23 @@ class BackgroundTask:
                 else:
                     if ability_manager.get_current_ability() == ABILITY_NAME_FLOURISH:
                         self.need_flourish = True
+
+    def _create_mouse_listener(self):
+        self.mouse_listener = mouse.Listener(on_click=self.on_mouse_click)
+        self.mouse_listener.daemon = True
+
+    def _start_mouse_listener(self):
+        if self.mouse_listener is None or not self.mouse_listener.is_alive():
+            self._create_mouse_listener()
+            self.mouse_listener.start()
+
+    def _stop_mouse_listener(self):
+        if self.mouse_listener is not None:
+            try:
+                self.mouse_listener.stop()
+            finally:
+                # Listener 线程停止后无法再次 start，清空以便重建
+                self.mouse_listener = None
 
     def log_to_gui(self, msg, is_error=False, type="update_ai_message"):
         from whimbox.ingame_ui.ingame_ui import win_ingame_ui
@@ -261,6 +276,7 @@ class BackgroundTask:
                         # 刚进入暂停状态
                         logger.info("检测到前台任务运行，后台小工具暂停")
                         self.was_paused = True
+                        self._stop_mouse_listener()
                     time.sleep(1)
                     continue
                 else:
@@ -269,6 +285,7 @@ class BackgroundTask:
                         # 刚从暂停状态恢复
                         logger.info("前台任务结束，后台小工具恢复运行")
                         self.was_paused = False
+                        self._start_mouse_listener()
                 
                 # 检测各种画面状态
                 try:
@@ -349,6 +366,8 @@ class BackgroundTask:
     def _execute_fishing(self):
         """执行钓鱼任务"""
         try:
+            # 停止鼠标监听，避免干扰鼠标点击
+            self._stop_mouse_listener()
             self.log_to_gui("检测到钓鱼界面，开始自动钓鱼", type="add_ai_message")
             fishing_task = FishingTask()
             fishing_task.step2()
@@ -363,6 +382,8 @@ class BackgroundTask:
                 self.log_to_gui(f"自动钓鱼失败: {fishing_task.task_result.message}", type="finalize_ai_message")
         except Exception as e:
             logger.error(f"自动钓鱼出错: {e}")
+        finally:
+            self._start_mouse_listener()
 
     def _detect_dialogue_opportunity(self, cap) -> bool:
         """检测是否进入对话"""

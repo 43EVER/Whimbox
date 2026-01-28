@@ -22,6 +22,7 @@ class PathSelectionDialog(QDialog):
         self.filter_target = None
         self.filter_type = None
         self.filter_count = None
+        self.show_default = False
         
         self.init_ui()
         self.load_paths()
@@ -146,9 +147,30 @@ class PathSelectionDialog(QDialog):
         filter_row2 = QHBoxLayout()
         filter_row2.setSpacing(8)
         filter_row2.addStretch()
+
+        self.show_default_button = QPushButton("显示一条龙路线")
+        self.show_default_button.setFixedSize(100, 24)
+        self.show_default_button.clicked.connect(self.show_default_button_clicked)
+        self.show_default_button.setStyleSheet("""
+            QPushButton {
+                background-color: #2196F3;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                font-size: 8pt;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #1976D2;
+            }
+            QPushButton:pressed {
+                background-color: #1565C0;
+            }
+        """)
+        filter_row2.addWidget(self.show_default_button)
         
-        subscribe_button = QPushButton("🌐 前往路线订阅网站")
-        subscribe_button.setFixedSize(120, 24)
+        subscribe_button = QPushButton("前往路线订阅网站")
+        subscribe_button.setFixedSize(100, 24)
         subscribe_button.clicked.connect(self.open_subscribe_page)
         subscribe_button.setStyleSheet("""
             QPushButton {
@@ -168,8 +190,8 @@ class PathSelectionDialog(QDialog):
         """)
         filter_row2.addWidget(subscribe_button)
         
-        open_folder_button = QPushButton("📁 打开路线文件夹")
-        open_folder_button.setFixedSize(120, 24)
+        open_folder_button = QPushButton("打开路线文件夹")
+        open_folder_button.setFixedSize(100, 24)
         open_folder_button.clicked.connect(self.open_path_folder)
         open_folder_button.setStyleSheet("""
             QPushButton {
@@ -189,8 +211,8 @@ class PathSelectionDialog(QDialog):
         """)
         filter_row2.addWidget(open_folder_button)
         
-        refresh_button = QPushButton("🔄 刷新路线")
-        refresh_button.setFixedSize(120, 24)
+        refresh_button = QPushButton("刷新路线")
+        refresh_button.setFixedSize(100, 24)
         refresh_button.clicked.connect(self.reload_paths)
         refresh_button.setStyleSheet("""
             QPushButton {
@@ -210,8 +232,8 @@ class PathSelectionDialog(QDialog):
         """)
         filter_row2.addWidget(refresh_button)
         
-        reset_button = QPushButton("🗑️ 重置筛选")
-        reset_button.setFixedSize(120, 24)
+        reset_button = QPushButton("重置筛选")
+        reset_button.setFixedSize(100, 24)
         reset_button.clicked.connect(self.reset_filters)
         reset_button.setStyleSheet("""
             QPushButton {
@@ -409,6 +431,16 @@ class PathSelectionDialog(QDialog):
         if not res:
             QMessageBox.warning(self, "提示", msg)
     
+    def show_default_button_clicked(self):
+        """显示一条龙路线"""
+        if self.show_default:
+            self.show_default = False
+            self.show_default_button.setText("显示一条龙路线")
+        else:
+            self.show_default = True
+            self.show_default_button.setText("隐藏一条龙路线")
+        self.load_paths()
+
     def open_subscribe_page(self):
         """打开路线订阅网页"""
         try:
@@ -433,7 +465,7 @@ class PathSelectionDialog(QDialog):
             count = self.filter_count if self.filter_count and self.filter_count > 0 else None
             
             # 查询路径
-            paths = scripts_manager.query_path(target=target, type=path_type, count=count)
+            paths = scripts_manager.query_path(target=target, type=path_type, count=count, return_one=False, show_default=self.show_default)
             
             # 清空表格
             self.path_list.setRowCount(0)

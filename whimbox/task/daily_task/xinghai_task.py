@@ -110,7 +110,7 @@ xhsg_task_info_list = [
     {
         "key_words": ["制造", "泡泡"],
         "score": 200,
-        "priority": 5,
+        "priority": 3,
         "task_name": XHSG_TASK_BUBBLE_MAKE
     },
     {

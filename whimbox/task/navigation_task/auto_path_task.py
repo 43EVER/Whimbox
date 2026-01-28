@@ -28,7 +28,7 @@ class AutoPathTask(TaskTemplate):
             self.path_info = path_record.info
             self.path_points = copy.deepcopy(path_record.points)
         elif path_name is not None:
-            path_record = scripts_manager.query_path(path_name=path_name)
+            path_record = scripts_manager.query_path(path_name=path_name, return_one=True)
             if path_record is None:
                 raise ValueError(f"路线\"{path_name}\"不存在，请先下载该路线")
             self.path_info = path_record.info
@@ -45,6 +45,8 @@ class AutoPathTask(TaskTemplate):
             point.position = [pngmap_position[0], pngmap_position[1]]
         
         # 各种状态记录
+        self.stuck_time = None
+        self.stuck_position = None
         self.last_position = None
         self.curr_position = None
         self.curr_target_point_id = 0
@@ -53,6 +55,7 @@ class AutoPathTask(TaskTemplate):
         self.last_need_move_mode = MOVE_MODE_WALK
         self.current_game_move_mode = MOVE_MODE_WALK
         self.once_loop_time = 0
+        self.last_teleport_point_id = 0
 
         # 各类材料获取任务的结果记录
         self.material_count_dict = {}
@@ -159,17 +162,36 @@ class AutoPathTask(TaskTemplate):
             if self.need_stop():
                 break
             self.inner_step_control_move()
-            if nikki_map.check_stuck():
-                raise Exception("卡在某个地方了")
             time.sleep(self.step_sleep)
             self.once_loop_time = time.time() - start_time
         return "step2"
+
+
+    def check_stuck(self):
+        if self.stuck_position is None:
+            if euclidean_distance(self.curr_position, self.last_position) < 1:
+                self.stuck_time = time.time()
+                self.stuck_position = self.last_position
+        else:
+            if euclidean_distance(self.curr_position, self.stuck_position) < 1:
+                # 连续10秒都在同一位置，则认为卡住了
+                if time.time() - self.stuck_time > 10:
+                    return True
+            else:
+                self.clear_stuck()
+        return False
+
+    def clear_stuck(self):
+        self.stuck_time = None
+        self.stuck_position = None
 
 
     def inner_step_update_target(self):
         is_end = False
         self.last_position = self.curr_position
         self.curr_position = nikki_map.get_position()
+        if self.check_stuck():
+            raise Exception("卡住10秒了")
         self.target_point = self.path_points[self.curr_target_point_id]
 
         # 计算当前位置与必经点的距离
@@ -300,6 +322,9 @@ class AutoPathTask(TaskTemplate):
                     
                 if task_result is not None and task_result.status != STATE_TYPE_SUCCESS:
                     self.update_task_result(status=STATE_TYPE_FAILED, message=task_result.message)
+                
+                # 如果进行过动作就清除卡住状态，因为有些动作是很耗时的
+                self.clear_stuck()
 
             if self.curr_target_point_id >= len(self.path_points) - 1:
                 # 走到终点了
@@ -319,6 +344,8 @@ class AutoPathTask(TaskTemplate):
                 self._update_next_target_point()
         
         if self.target_point.action == ACTION_TELEPORT:
+            # 记录经过的传送点，重试时可以从该传送点重试
+            self.last_teleport_point_id = self.curr_target_point_id
             if target_dist >= not_teleport_offset:
                 self.log_to_gui(f"传送到附近的流转之柱")
                 self.stop_move()
@@ -366,7 +393,8 @@ class AutoPathTask(TaskTemplate):
     def clear_all(self):
         self.last_position = None
         self.curr_position = None
-        self.curr_target_point_id = 0
+        # 恢复到最近的传送点
+        self.curr_target_point_id = self.last_teleport_point_id
         self.target_point: PathPoint = None
         self.need_move_mode = MOVE_MODE_WALK
         self.last_need_move_mode = MOVE_MODE_WALK
@@ -401,6 +429,6 @@ class AutoPathTask(TaskTemplate):
 
 
 if __name__ == "__main__":
-    task = AutoPathTask(path_name="鎏金蜜鎏金蜜南北绿豆")
+    task = AutoPathTask(path_name="测试卡住")
     task_result = task.task_run()
     print(task_result.to_dict())

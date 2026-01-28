@@ -85,7 +85,7 @@ class ScriptsManager:
                     try:
                         json_text = f.read()
                         json_dict = json.loads(json_text)
-                        if json_dict['info']['type'] == '宏':
+                        if json_dict['info']['type'] == '宏' or json_dict['info']['type'] == '乐谱':
                             macro_record = MacroRecord.model_validate_json(json_text)
                             macro_name = macro_record.info.name
                             if macro_name in self.macro_dict:
@@ -109,7 +109,7 @@ class ScriptsManager:
                         logger.error(f"读取脚本文件{file}失败: {e}")
                         continue
 
-    def query_path(self, path_name=None, target=None, type=None, count=None, return_one=False) -> list[PathRecord] | PathRecord | None:
+    def query_path(self, path_name=None, target=None, type=None, count=None, return_one=False, show_default=False) -> list[PathRecord] | PathRecord | None:
         # 指定名字就直接返回单文件（用于内部固定路线的任务使用，比如每日任务）
         if path_name:
             return self.path_dict.get(path_name, None)
@@ -119,7 +119,7 @@ class ScriptsManager:
         for _, path_record in self.path_dict.items():
             match = True
             
-            if path_record.info.name.startswith("朝夕心愿_") or path_record.info.name.startswith("星海拾光_"):
+            if (not show_default) and (path_record.info.name.startswith("朝夕心愿_") or path_record.info.name.startswith("星海拾光_")):
                 match = False
 
             # Filter by target (exact match)
@@ -215,7 +215,7 @@ class ScriptsManager:
             return False, f"无法打开路线文件夹:{str(e)}"
         return True, f"已打开路线文件夹:{SCRIPT_PATH}"
 
-    def query_macro(self, name=None) -> list[MacroRecord] | MacroRecord | None:
+    def query_macro(self, name=None, is_play_music=False, return_one=False, show_default=False) -> list[MacroRecord] | MacroRecord | None:
         """
         查询宏
         
@@ -229,24 +229,51 @@ class ScriptsManager:
         if name:
             # 尝试精确匹配
             if name in self.macro_dict:
-                return self.macro_dict[name]
+                if return_one:
+                    return self.macro_dict[name]
+                else:
+                    return [self.macro_dict[name]]
             
             # 模糊匹配
             res = []
             for macro_name, macro_record in self.macro_dict.items():
-                if macro_record.info.name.startswith("朝夕心愿_") or macro_record.info.name.startswith("星海拾光_"):
+                if (not show_default) and (macro_record.info.name.startswith("朝夕心愿_") or macro_record.info.name.startswith("星海拾光_")):
                     continue
                 if name.lower() in macro_name.lower():
-                    res.append(macro_record)
-            return res
+                    if macro_record.info.type == "乐谱" and is_play_music:
+                        if return_one:
+                            return macro_record
+                        else:
+                            res.append(macro_record)
+                    elif macro_record.info.type != "乐谱" and not is_play_music:
+                        if return_one:
+                            return macro_record
+                        else:
+                            res.append(macro_record)
+            if return_one:
+                return res[0] if res else None
+            else:
+                return res
         
         # 返回所有宏
         res = []
         for _, macro_record in self.macro_dict.items():
-            if macro_record.info.name.startswith("朝夕心愿_") or macro_record.info.name.startswith("星海拾光_"):
+            if (not show_default) and (macro_record.info.name.startswith("朝夕心愿_") or macro_record.info.name.startswith("星海拾光_")):
                 continue
-            res.append(macro_record)
-        return res
+            if macro_record.info.type == "乐谱" and is_play_music:
+                if return_one:
+                    return macro_record
+                else:
+                    res.append(macro_record)
+            elif macro_record.info.type != "乐谱" and not is_play_music:
+                if return_one:
+                    return macro_record
+                else:
+                    res.append(macro_record)
+        if return_one:
+            return res[0] if res else None
+        else:
+            return res
     
     def delete_macro(self, macro_name: str) -> int:
         """

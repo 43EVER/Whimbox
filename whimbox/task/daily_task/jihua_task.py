@@ -117,7 +117,7 @@ class JihuaTask(TaskTemplate):
 
     @register_step("等待激化完成")
     def step8(self):
-        if wait_until_appear(IconSkip, retry_time=5):
+        if wait_until_appear(IconSkip, retry_time=10):
             itt.delay(0.5, comment="以防万一，这里也加个延迟")
             itt.key_press(keybind.KEYBIND_INTERACTION)
         if skip_get_award():
