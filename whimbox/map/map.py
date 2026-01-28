@@ -234,7 +234,7 @@ class Map(MiniMap, BigMap):
         logger.debug(f"_move_bigmap: {dx} {dy}")
 
         itt.move_to([dx, dy], relative=True)
-        itt.delay(0.2, comment="waiting bigmap move")
+        itt.delay(0.5, comment="waiting bigmap move")
         itt.left_up()
 
         after_move_posi = self.get_bigmap_posi()
