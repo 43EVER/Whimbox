@@ -162,6 +162,7 @@ class TaskTemplate:
                 if not self.need_stop():
                     self.log_to_gui(f"自动返回主界面，重试一次")
                     back_to_page_main()
+                    self.task_result = TaskResult() # 重置一下任务结果
                     res = self._task_run()
                     return res
                 else:
