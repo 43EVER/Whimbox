@@ -65,9 +65,11 @@ class TaskTemplate:
             stop_flag = threading.Event()
             current_stop_flag.set(stop_flag)
             self.is_top_level_task = True
+            logger.info(f"创建顶层任务: {self.name}")
         else:
             # 这是子任务，复用父任务的 stop_flag
             self.is_top_level_task = False
+            logger.info(f"创建子任务: {self.name}")
         
         # 保存为实例属性，供 pynput 回调和任务内部使用
         self.stop_flag = stop_flag
@@ -250,6 +252,7 @@ class TaskTemplate:
         if not self.stop_flag.is_set():
             self.stop_flag.set()
         self.update_task_result(status=STATE_TYPE_STOP, message=message or "停止任务", data=data)
+        logger.info(f"停止任务: {self.name}")
 
     def need_stop(self):
         if self.stop_flag.is_set():
