@@ -1,0 +1,181 @@
+{
+  "id": "game_nikki",
+  "name": "无限暖暖任务插件",
+  "version": "0.1.0",
+  "author": "whimbox",
+  "description": "无限暖暖游戏的任务工具集合",
+  "entry": "main.py",
+  "api_version": "1.0",
+  "min_core_version": "0.0.0",
+  "permissions": ["screen", "input"],
+  "tools": [
+    {
+      "id": "nikki.jihua",
+      "name": "素材激化",
+      "description": "消耗活跃能量，用大世界材料换取噗灵、丝线、闪亮泡泡",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "target_material": { "type": "string" },
+          "cost_material": { "type": "string" }
+        },
+        "required": []
+      },
+      "output_schema": { "type": "object", "properties": { "status": { "type": "string" }, "message": { "type": "string" }, "data": {} } }
+    },
+    {
+      "id": "nikki.bless",
+      "name": "祝福闪光",
+      "description": "消耗活跃能量，获取祝福闪光",
+      "input_schema": {
+        "type": "object",
+        "properties": { "level_name": { "type": "string" } },
+        "required": []
+      },
+      "output_schema": { "type": "object", "properties": { "status": { "type": "string" }, "message": { "type": "string" }, "data": {} } }
+    },
+    {
+      "id": "nikki.monster",
+      "name": "魔物试炼",
+      "description": "消耗活跃能量，挑战魔物试炼幻境",
+      "input_schema": {
+        "type": "object",
+        "properties": { "level_name": { "type": "string" } },
+        "required": []
+      },
+      "output_schema": { "type": "object", "properties": { "status": { "type": "string" }, "message": { "type": "string" }, "data": {} } }
+    },
+    {
+      "id": "nikki.dig",
+      "name": "美鸭梨挖掘",
+      "description": "进行美鸭梨挖掘",
+      "input_schema": { "type": "object", "properties": {}, "required": [] },
+      "output_schema": { "type": "object", "properties": { "status": { "type": "string" }, "message": { "type": "string" }, "data": {} } }
+    },
+    {
+      "id": "nikki.zhaoxi",
+      "name": "朝夕心愿",
+      "description": "检查每日任务（朝夕心愿）的进度",
+      "input_schema": { "type": "object", "properties": {}, "required": [] },
+      "output_schema": { "type": "object", "properties": { "status": { "type": "string" }, "message": { "type": "string" }, "data": {} } }
+    },
+    {
+      "id": "nikki.navigation",
+      "name": "跑图导航",
+      "description": "指定素材名或素材获取方式进行获取",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "target": { "type": "string" },
+          "type": { "type": "string" },
+          "count": { "type": "integer" }
+        },
+        "required": []
+      },
+      "output_schema": { "type": "object", "properties": { "status": { "type": "string" }, "message": { "type": "string" }, "data": {} } }
+    },
+    {
+      "id": "nikki.load_path",
+      "name": "加载路线",
+      "description": "加载并测试指定的跑图路径文件",
+      "input_schema": {
+        "type": "object",
+        "properties": { "path_name": { "type": "string" } },
+        "required": ["path_name"]
+      },
+      "output_schema": { "type": "object", "properties": { "status": { "type": "string" }, "message": { "type": "string" }, "data": {} } }
+    },
+    {
+      "id": "nikki.record_path",
+      "name": "录制路线",
+      "description": "记录跑图路线",
+      "input_schema": { "type": "object", "properties": {}, "required": [] },
+      "output_schema": { "type": "object", "properties": { "status": { "type": "string" }, "message": { "type": "string" }, "data": {} } }
+    },
+    {
+      "id": "nikki.record_macro",
+      "name": "录制宏",
+      "description": "录制键鼠宏",
+      "input_schema": { "type": "object", "properties": {}, "required": [] },
+      "output_schema": { "type": "object", "properties": { "status": { "type": "string" }, "message": { "type": "string" }, "data": {} } }
+    },
+    {
+      "id": "nikki.run_macro",
+      "name": "运行宏",
+      "description": "运行指定的宏",
+      "input_schema": {
+        "type": "object",
+        "properties": { "macro_name": { "type": "string" } },
+        "required": ["macro_name"]
+      },
+      "output_schema": { "type": "object", "properties": { "status": { "type": "string" }, "message": { "type": "string" }, "data": {} } }
+    },
+    {
+      "id": "nikki.play_music",
+      "name": "演奏乐谱",
+      "description": "演奏指定的乐谱",
+      "input_schema": {
+        "type": "object",
+        "properties": { "macro_name": { "type": "string" } },
+        "required": ["macro_name"]
+      },
+      "output_schema": { "type": "object", "properties": { "status": { "type": "string" }, "message": { "type": "string" }, "data": {} } }
+    },
+    {
+      "id": "nikki.open_path_folder",
+      "name": "打开路线文件夹",
+      "description": "打开路线文件夹",
+      "input_schema": { "type": "object", "properties": {}, "required": [] },
+      "output_schema": { "type": "object", "properties": { "status": { "type": "string" }, "message": { "type": "string" } } }
+    },
+    {
+      "id": "nikki.daily_photo",
+      "name": "每日任务拍照",
+      "description": "进入拍照界面并完成每日拍照任务",
+      "input_schema": { "type": "object", "properties": {}, "required": [] },
+      "output_schema": { "type": "object", "properties": { "status": { "type": "string" }, "message": { "type": "string" }, "data": {} } }
+    },
+    {
+      "id": "nikki.all_in_one",
+      "name": "一条龙",
+      "description": "一次性完成所有任务",
+      "input_schema": { "type": "object", "properties": {}, "required": [] },
+      "output_schema": { "type": "object", "properties": { "status": { "type": "string" }, "message": { "type": "string" }, "data": {} } }
+    },
+    {
+      "id": "nikki.monthly_pass",
+      "name": "月卡奖励",
+      "description": "领取奇迹之旅（大月卡）奖励",
+      "input_schema": { "type": "object", "properties": {}, "required": [] },
+      "output_schema": { "type": "object", "properties": { "status": { "type": "string" }, "message": { "type": "string" }, "data": {} } }
+    },
+    {
+      "id": "nikki.weekly_realm",
+      "name": "每周幻境",
+      "description": "周本，心之突破幻境",
+      "input_schema": { "type": "object", "properties": {}, "required": [] },
+      "output_schema": { "type": "object", "properties": { "status": { "type": "string" }, "message": { "type": "string" }, "data": {} } }
+    },
+    {
+      "id": "nikki.xinghai",
+      "name": "星海日常",
+      "description": "星海日常任务一条龙",
+      "input_schema": { "type": "object", "properties": {}, "required": [] },
+      "output_schema": { "type": "object", "properties": { "status": { "type": "string" }, "message": { "type": "string" }, "data": {} } }
+    },
+    {
+      "id": "nikki.mira_crown",
+      "name": "奇迹之冠",
+      "description": "奇迹之冠搭配赛，奇迹之冠巅峰赛",
+      "input_schema": { "type": "object", "properties": {}, "required": [] },
+      "output_schema": { "type": "object", "properties": { "status": { "type": "string" }, "message": { "type": "string" }, "data": {} } }
+    },
+    {
+      "id": "nikki.xinghai_run",
+      "name": "收集星光结晶",
+      "description": "星海跑图，收集星光结晶",
+      "input_schema": { "type": "object", "properties": {}, "required": [] },
+      "output_schema": { "type": "object", "properties": { "status": { "type": "string" }, "message": { "type": "string" }, "data": {} } }
+    }
+  ]
+}

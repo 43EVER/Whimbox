@@ -47,6 +47,22 @@ class SessionManager:
             session = self._sessions.get(session_id)
             return asdict(session) if session else None
 
+    def update_window(self, session_id: str, window_handle: int) -> Optional[Dict[str, Any]]:
+        with self._lock:
+            session = self._sessions.get(session_id)
+            if not session:
+                return None
+            session.window_handle = window_handle
+            return asdict(session)
+
+    def set_state(self, session_id: str, state: str) -> Optional[Dict[str, Any]]:
+        with self._lock:
+            session = self._sessions.get(session_id)
+            if not session:
+                return None
+            session.state = state
+            return asdict(session)
+
     def close(self, session_id: str) -> bool:
         with self._lock:
             return self._sessions.pop(session_id, None) is not None
