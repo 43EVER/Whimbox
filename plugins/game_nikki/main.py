@@ -223,6 +223,7 @@ TOOL_FUNCS = {
     "nikki.record_path": run_record_path,
     "nikki.record_macro": run_record_macro,
     "nikki.run_macro": run_run_macro,
+    "nikki.play_music": run_play_music,
     "nikki.open_path_folder": run_open_path_folder,
     "nikki.daily_photo": run_daily_photo,
     "nikki.all_in_one": run_all_in_one,

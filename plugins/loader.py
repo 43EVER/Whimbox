@@ -43,7 +43,7 @@ def load_plugins(
 
     loaded: List[Dict[str, Any]] = []
     for plugin_dir in plugins_dir.iterdir():
-        if not plugin_dir.is_dir():
+        if not plugin_dir.is_dir() or plugin_dir.name.startswith("_"):
             continue
         try:
             meta = _read_plugin_meta(plugin_dir)
