@@ -1,7 +1,7 @@
 import numpy as np
 
 from whimbox.map.detection.cvars import *
-from whimbox.map.detection.utils import create_circle_mask
+from whimbox.common.utils.img_utils import create_circle_mask
 from whimbox.map.detection.utils import MapAsset
 
 
