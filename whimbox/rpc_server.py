@@ -15,6 +15,7 @@ from whimbox.plugin_runtime import get_registry, init_plugins, get_loaded_plugin
 from whimbox.session_manager import session_manager
 from whimbox.task_manager import task_manager
 from whimbox.task.background_task import background_manager, BackgroundFeature
+from whimbox.common.scripts_manager import scripts_manager
 
 
 _clients: Set[Any] = set()
@@ -101,6 +102,16 @@ def _infer_config_type(value: Any) -> str:
         if numeric.isdigit():
             return "number"
     return "string"
+
+
+def _serialize_script_info(record: Any) -> Dict[str, Any]:
+    info = getattr(record, "info", None)
+    if info is None:
+        return {}
+    try:
+        return info.model_dump()
+    except Exception:  # noqa: BLE001
+        return {}
 
 
 def _get_background_state() -> Dict[str, Any]:
@@ -370,6 +381,54 @@ async def _dispatch(method: str, params: Dict[str, Any]) -> Any:
         if not ok:
             raise ValueError("task not found")
         return {"ok": True}
+
+    if method == "script.query_path":
+        name = params.get("name")
+        target = params.get("target")
+        nav_type = params.get("type")
+        count = params.get("count")
+        show_default = bool(params.get("show_default", False))
+        if isinstance(count, str):
+            try:
+                count = int(count)
+            except ValueError as exc:
+                raise ValueError("count must be a number") from exc
+        paths = scripts_manager.query_path(
+            name=name,
+            target=target,
+            type=nav_type,
+            count=count,
+            return_one=False,
+            show_default=show_default,
+        )
+        items = [{"info": _serialize_script_info(record)} for record in paths]
+        return items
+
+    if method == "script.query_macro":
+        name = params.get("name")
+        is_play_music = bool(params.get("is_play_music", False))
+        show_default = bool(params.get("show_default", False))
+        macros = scripts_manager.query_macro(
+            name=name,
+            is_play_music=is_play_music,
+            return_one=False,
+            show_default=show_default,
+        )
+        items = [{"info": _serialize_script_info(record)} for record in macros]
+        return items
+
+    if method == "script.delete":
+        name = params.get("name")
+        category = params.get("category")
+        if not name:
+            raise ValueError("name is required")
+        if category not in ("path", "macro", "music"):
+            raise ValueError("category must be one of: path, macro, music")
+        if category == "path":
+            deleted = scripts_manager.delete_path(name)
+        else:
+            deleted = scripts_manager.delete_macro(name)
+        return {"deleted": deleted}
 
     if method == "health":
         return {"status": "ok"}

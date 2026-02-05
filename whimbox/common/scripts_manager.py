@@ -112,7 +112,7 @@ class ScriptsManager:
                             logger.error(f"读取脚本文件{file_path}失败: {e}")
                             continue
 
-    def query_path(self, path_name=None, target=None, type=None, count=None, return_one=False, show_default=False) -> list[PathRecord] | PathRecord | None:
+    def query_path(self, path_name=None, name=None, target=None, type=None, count=None, return_one=False, show_default=False) -> list[PathRecord] | PathRecord | None:
         # 指定名字就直接返回单文件（用于内部固定路线的任务使用，比如每日任务）
         if path_name:
             return self.path_dict.get(path_name, None)
@@ -124,6 +124,10 @@ class ScriptsManager:
             
             if (not show_default) and (path_record.info.name.startswith("朝夕心愿_") or path_record.info.name.startswith("星海拾光_")):
                 match = False
+
+            if name is not None:
+                if name.lower() not in path_record.info.name.lower():
+                    match = False
 
             # Filter by target (exact match)
             if target is not None:

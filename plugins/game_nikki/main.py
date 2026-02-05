@@ -160,7 +160,7 @@ def run_run_macro(session_id: str, input: Dict[str, Any], context: Dict[str, Any
 
 @_with_game_check
 def run_play_music(session_id: str, input: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
-    music_name = input.get("music_name")
+    music_name = input.get("music_name") or input.get("macro_name")
     if not music_name:
         return _error("乐谱名称不能为空")
     macro_record = scripts_manager.query_macro(music_name, is_play_music=True, return_one=True)
