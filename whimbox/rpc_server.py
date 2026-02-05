@@ -14,6 +14,7 @@ from whimbox.mcp_agent import mcp_agent
 from whimbox.plugin_runtime import get_registry, init_plugins, get_loaded_plugins, get_plugins_version
 from whimbox.session_manager import session_manager
 from whimbox.task_manager import task_manager
+from whimbox.task.background_task import background_manager, BackgroundFeature
 
 
 _clients: Set[Any] = set()
@@ -100,6 +101,31 @@ def _infer_config_type(value: Any) -> str:
         if numeric.isdigit():
             return "number"
     return "string"
+
+
+def _get_background_state() -> Dict[str, Any]:
+    return {
+        "running": background_manager.is_running(),
+        "features": {
+            feature.value: background_manager.is_feature_enabled(feature)
+            for feature in BackgroundFeature
+        },
+    }
+
+
+def _set_background_feature(feature_key: str, enabled: bool) -> None:
+    try:
+        feature = BackgroundFeature(feature_key)
+    except ValueError as exc:
+        raise ValueError(f"invalid feature: {feature_key}") from exc
+    background_manager.set_feature_enabled(feature, enabled)
+    any_enabled = any(
+        background_manager.is_feature_enabled(item) for item in BackgroundFeature
+    )
+    if any_enabled and not background_manager.is_running():
+        background_manager.start_background_task()
+    elif not any_enabled and background_manager.is_running():
+        background_manager.stop_background_task()
 
 
 def _split_config_path(path: str) -> list[str]:
@@ -388,6 +414,26 @@ async def _dispatch(method: str, params: Dict[str, Any]) -> Any:
         if not global_config.save():
             raise ValueError("config save failed")
         return {"ok": True}
+
+    if method == "background.get":
+        return _get_background_state()
+
+    if method == "background.set":
+        updates = params.get("updates")
+        if updates is not None:
+            if not isinstance(updates, list):
+                raise ValueError("updates must be a list")
+            for item in updates:
+                if not isinstance(item, dict):
+                    raise ValueError("update item must be object")
+                _set_background_feature(
+                    item.get("feature"), bool(item.get("enabled"))
+                )
+        else:
+            _set_background_feature(
+                params.get("feature"), bool(params.get("enabled"))
+            )
+        return _get_background_state()
 
     if method == "plugin.reload":
         init_plugins(force_reload=True)
