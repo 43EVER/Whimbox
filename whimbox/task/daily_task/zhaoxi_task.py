@@ -96,6 +96,7 @@ class ZhaoxiTask(TaskTemplate):
         super().__init__("zhaoxi_task")
         self.current_score = 0
         self.need_cost_energy = 0
+        self.done_task_names = []
 
     @register_step("检查朝夕心愿完成情况")
     def step1(self):
@@ -111,7 +112,7 @@ class ZhaoxiTask(TaskTemplate):
             raise Exception(f"朝夕心愿分数识别异常:{score_str}")
         self.current_score = score
         if score == 500:
-            return "step5"
+            return "step4"
         else:
             self.log_to_gui(f"朝夕心愿完成度：{score}/500")
             return
