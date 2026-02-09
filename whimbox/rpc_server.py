@@ -430,6 +430,10 @@ async def _dispatch(method: str, params: Dict[str, Any]) -> Any:
             deleted = scripts_manager.delete_macro(name)
         return {"deleted": deleted}
 
+    if method == "script.refresh":
+        scripts_manager.init_scripts_dict()
+        return {"ok": True}
+
     if method == "health":
         return {"status": "ok"}
 
