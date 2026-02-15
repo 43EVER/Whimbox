@@ -209,6 +209,10 @@ class GlobalConfig:
             'value': value,
             'description': description
         }
+        # 如果更新了键位设置，就要update一下
+        if section == "Keybinds":
+            from whimbox.common.keybind import keybind
+            keybind.update_keybind()
 
     def save(self) -> bool:
         """保存配置到文件"""
