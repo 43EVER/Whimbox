@@ -60,6 +60,7 @@ class TaskTemplate:
             raise ValueError(f"{self.__class__.__name__} requires non-empty session_id")
         self.name = name
         self.session_id = session_id
+        self.show_stop_key_message = True
         
         # 尝试从 context 获取父任务的 stop_flag
         stop_flag = current_stop_flag.get()
@@ -167,7 +168,8 @@ class TaskTemplate:
             # 如果是顶层任务，设置前台任务运行标志
             if self.is_top_level_task:
                 set_foreground_task_running(True)
-                self.log_to_gui("你可以按 " + self._get_stop_hotkey() + " 键随时停止任务")
+                if self.show_stop_key_message:
+                    self.log_to_gui("你可以按 " + self._get_stop_hotkey() + " 键，随时停止任务")
             
             res = self._task_run()
             if res.status in [STATE_TYPE_SUCCESS, STATE_TYPE_STOP, STATE_TYPE_FAILED]:

@@ -253,10 +253,10 @@ class BackgroundTask:
     def log_to_gui(self, msg, is_error=False, type="update_ai_message"):
         raw_message = msg
         if is_error:
-            msg = f"❌ {msg}\n"
+            msg = f"❌ {msg}"
             level = "error"
         else:
-            msg = f"✅ {msg}\n"
+            msg = f"✅ {msg}"
             level = "info"
 
         from whimbox.rpc_server import notify_event
@@ -406,6 +406,7 @@ class BackgroundTask:
             # 停止鼠标监听，避免干扰鼠标点击
             self._stop_mouse_listener()
             self.log_to_gui("检测到钓鱼界面，开始自动钓鱼", type="add_ai_message")
+            self.log_to_gui("你可以按 " + global_config.get("Whimbox", "stop_key") + " 键，随时停止钓鱼")
             fishing_task = FishingTask(session_id=session_id)
             fishing_task.step2()
              # 因为不是完整的task运行流程，所以手动清除current_stop_flag

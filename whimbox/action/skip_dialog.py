@@ -7,6 +7,7 @@ import time
 class SkipDialogTask(TaskTemplate):
     def __init__(self, session_id):
         super().__init__(session_id=session_id, name="skip_dialog_task")
+        self.show_stop_key_message = False
 
     @register_step()
     def step1(self):
