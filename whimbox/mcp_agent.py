@@ -107,8 +107,6 @@ class Agent:
             return {"ok": False, "tool_running": sid in self._tool_running_sessions}
         if stop_event is not None:
             stop_event.set()
-        if stream_task is not None and not stream_task.done():
-            stream_task.cancel()
         return {"ok": True, "tool_running": sid in self._tool_running_sessions}
 
     async def query_agent(self, text, thread_id="default", stream_callback=None, status_callback=None):
@@ -136,16 +134,13 @@ class Agent:
         async def _run_stream():
             nonlocal full_response, tool_running
             async for event in self.langchain_agent.astream_events(input, config=config):
-                if stop_event.is_set():
-                    if tool_running and status_callback:
-                        status_callback("on_tool_stopping", "manual_stop")
-                    break
                 # 处理不同类型的流式事件
                 event_type = event.get("event")
                 data = event.get("data", {})
 
                 if event_type == "on_chat_model_stream":
-                    # 处理AI模型的流式输出
+                    if stop_event.is_set():
+                        break
                     chunk = data.get("chunk")
                     if chunk and hasattr(chunk, 'content') and chunk.content:
                         content = chunk.content
