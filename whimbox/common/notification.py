@@ -31,7 +31,7 @@ class WindowsNotifier:
     def is_enabled(self) -> bool:
         """检查通知功能是否启用"""
         try:
-            enable_notification = global_config.get_bool("Path", "enable_windows_notification", False)
+            enable_notification = global_config.get_bool("Whimbox", "enable_windows_notification", False)
             return enable_notification and self.toaster is not None
         except Exception:
             return False

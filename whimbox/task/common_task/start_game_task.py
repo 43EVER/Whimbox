@@ -27,7 +27,7 @@ class StartGameTask(TaskTemplate):
         # 判断启动器是否已经在运行
         launcher_handle = ProcessHandler(process_name="xstarter.exe")
         if not launcher_handle.get_handle():
-            launcher_path = global_config.get("Path", "launcher_path")
+            launcher_path = global_config.get("Whimbox", "launcher_path")
             if launcher_path == "":
                 launcher_path = find_game_launcher_folder()
                 launcher_path = os.path.join(launcher_path, "launcher.exe")
@@ -35,7 +35,7 @@ class StartGameTask(TaskTemplate):
                     self.task_stop("未能自动找到叠纸启动器路径，请手动打开游戏或在奇想盒设置中设置")
                     return
                 else:
-                    global_config.set("Path", "launcher_path", launcher_path)
+                    global_config.set("Whimbox", "launcher_path", launcher_path)
                     global_config.save()
             
             if not os.path.exists(launcher_path):
