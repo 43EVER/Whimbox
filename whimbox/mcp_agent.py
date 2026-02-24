@@ -1,3 +1,6 @@
+import asyncio
+import threading
+
 from langgraph.prebuilt import create_react_agent
 from langchain.chat_models import init_chat_model
 from langgraph.checkpoint.memory import MemorySaver
@@ -28,8 +31,14 @@ class Agent:
         self.tools = None
         self._registry = None
         self._active_session_id = "default"
+        self._session_stop_events = {}
+        self._tool_running_sessions = set()
+        self._session_stream_tasks = {}
 
         self._initialized = True
+
+    def _get_active_stop_event(self):
+        return self._session_stop_events.get(self._active_session_id)
 
     async def start(self):
         logger.debug("开始初始化agent")
@@ -59,6 +68,7 @@ class Agent:
             self.tools = build_tools(
                 self._registry,
                 session_id_getter=lambda: self._active_session_id,
+                stop_event_getter=self._get_active_stop_event,
             )
             if self.tools:
                 self.mcp_ready = True
@@ -88,6 +98,19 @@ class Agent:
         agent_ready = self.langchain_agent is not None
         return agent_ready, self.mcp_ready, self.err_msg
 
+    def request_stop(self, session_id: str):
+        logger.debug(f"request_stop: session_id={session_id}")
+        sid = session_id or "default"
+        stop_event = self._session_stop_events.get(sid)
+        stream_task = self._session_stream_tasks.get(sid)
+        if stop_event is None and stream_task is None:
+            return {"ok": False, "tool_running": sid in self._tool_running_sessions}
+        if stop_event is not None:
+            stop_event.set()
+        if stream_task is not None and not stream_task.done():
+            stream_task.cancel()
+        return {"ok": True, "tool_running": sid in self._tool_running_sessions}
+
     async def query_agent(self, text, thread_id="default", stream_callback=None, status_callback=None):
         if not self.langchain_agent:
             err_msg = self.err_msg or "Agent 未就绪，请先完成初始化。"
@@ -98,76 +121,99 @@ class Agent:
         config = {"configurable": {"thread_id": thread_id}}
         input = {"messages": [{"role": "user", "content": text}]}
 
-        self._active_session_id = thread_id or "default"
+        session_id = thread_id or "default"
+        self._active_session_id = session_id
+        stop_event = threading.Event()
+        self._session_stop_events[session_id] = stop_event
         
         full_response = ""
+        tool_running = False
         
         # 通知开始思考
         if status_callback:
             status_callback("thinking")
         
-        async for event in self.langchain_agent.astream_events(input, config=config):
-            # print(f"Event: {event.get('event')}")
-            # if event.get('event') in ['on_tool_start', 'on_tool_end', 'on_tool_error']:
-            #     print(f"Tool Event Details: {event}")
-            # elif 'tool' in str(event.get('event', '')).lower():
-            #     print(f"Unknown Tool Event: {event}")
-            
-            # 处理不同类型的流式事件
-            event_type = event.get("event")
-            data = event.get("data", {})
-            
-            if event_type == "on_chat_model_stream":
-                # 处理AI模型的流式输出
-                chunk = data.get("chunk")
-                if chunk and hasattr(chunk, 'content') and chunk.content:
-                    content = chunk.content
-                    full_response += content
-                    if stream_callback and content.strip():  # 只发送非空内容
-                        stream_callback(content)
-            
-            elif event_type == "on_tool_start":
-                # 工具调用开始
-                tool_name = event.get("name", "")
-                if stream_callback:
-                    stream_callback(f"🔧 任务进行中，按“/”键，随时终止任务\n")
-                if status_callback:
-                    status_callback("on_tool_start", tool_name)
-            
-            elif event_type == "on_tool_end":
-                # 工具调用结束
-                tool_name = event.get("name", "")
-                tool_output = data.get("output", "")
-                if stream_callback:
-                    stream_callback(f"💭 任务完成，总结成果中~\n")
-                if status_callback:
-                    status_callback("on_tool_end", tool_name)
-            
-            elif event_type == "on_tool_error":
-                # 工具调用错误
-                error = data.get("error", "")
-                tool_name = event.get("name", "")
-                if stream_callback:
-                    stream_callback(f"❌ 任务失败: {error}\n")
-                if status_callback:
-                    status_callback("on_tool_error", tool_name)
-            
-            elif event_type == "on_chat_model_start":
-                # 开始生成回复
-                if status_callback:
-                    status_callback("generating")
-            
-            elif event_type == "on_chain_end":
-                # 整个链条结束，获取最终结果
-                output = data.get("output")
-                if output and hasattr(output, 'content'):
-                    # 如果有最终内容，确保包含在响应中
-                    if output.content and output.content not in full_response:
-                        final_content = output.content
-                        full_response += final_content
-                        if stream_callback:
-                            stream_callback(final_content)
-        
+        async def _run_stream():
+            nonlocal full_response, tool_running
+            async for event in self.langchain_agent.astream_events(input, config=config):
+                if stop_event.is_set():
+                    if tool_running and status_callback:
+                        status_callback("on_tool_stopping", "manual_stop")
+                    break
+                # 处理不同类型的流式事件
+                event_type = event.get("event")
+                data = event.get("data", {})
+
+                if event_type == "on_chat_model_stream":
+                    # 处理AI模型的流式输出
+                    chunk = data.get("chunk")
+                    if chunk and hasattr(chunk, 'content') and chunk.content:
+                        content = chunk.content
+                        full_response += content
+                        if stream_callback and content.strip():  # 只发送非空内容
+                            stream_callback(content)
+
+                elif event_type == "on_tool_start":
+                    # 工具调用开始
+                    tool_name = event.get("name", "")
+                    tool_running = True
+                    self._tool_running_sessions.add(session_id)
+                    if stream_callback:
+                        stream_callback(f"🔧 任务进行中，按“/”键，随时终止任务\n")
+                    if status_callback:
+                        status_callback("on_tool_start", tool_name)
+
+                elif event_type == "on_tool_end":
+                    # 工具调用结束
+                    tool_name = event.get("name", "")
+                    tool_running = False
+                    self._tool_running_sessions.discard(session_id)
+                    if stream_callback:
+                        stream_callback(f"💭 任务完成，总结成果中~\n")
+                    if status_callback:
+                        status_callback("on_tool_end", tool_name)
+
+                elif event_type == "on_tool_error":
+                    # 工具调用错误
+                    error = data.get("error", "")
+                    tool_name = event.get("name", "")
+                    tool_running = False
+                    self._tool_running_sessions.discard(session_id)
+                    if stream_callback:
+                        stream_callback(f"❌ 任务失败: {error}\n")
+                    if status_callback:
+                        status_callback("on_tool_error", tool_name)
+
+                elif event_type == "on_chat_model_start":
+                    # 开始生成回复
+                    if status_callback:
+                        status_callback("generating")
+
+                elif event_type == "on_chain_end":
+                    # 整个链条结束，获取最终结果
+                    output = data.get("output")
+                    if output and hasattr(output, 'content'):
+                        # 如果有最终内容，确保包含在响应中
+                        if output.content and output.content not in full_response:
+                            final_content = output.content
+                            full_response += final_content
+                            if stream_callback:
+                                stream_callback(final_content)
+
+        stream_task = asyncio.create_task(_run_stream())
+        self._session_stream_tasks[session_id] = stream_task
+        try:
+            await stream_task
+        except asyncio.CancelledError:
+            logger.info(f"Agent stream cancelled: session={session_id}")
+        finally:
+            self._session_stream_tasks.pop(session_id, None)
+            self._session_stop_events.pop(session_id, None)
+            self._tool_running_sessions.discard(session_id)
+
+        if stop_event.is_set() and not full_response.strip():
+            full_response = "已停止当前对话。"
+
         logger.debug("大模型调用完成")
         return full_response
 
@@ -183,6 +229,7 @@ class Agent:
         self.tools = build_tools(
             self._registry,
             session_id_getter=lambda: self._active_session_id,
+            stop_event_getter=self._get_active_stop_event,
         )
         if self.tools:
             self.mcp_ready = True

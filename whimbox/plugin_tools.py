@@ -1,3 +1,4 @@
+from threading import Event
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type
 
 from langchain_core.tools import StructuredTool
@@ -45,6 +46,7 @@ def _build_args_schema(input_schema: Dict[str, Any], model_name: str):
 def build_tools(
     registry: PluginRegistry,
     session_id_getter: Callable[[], str],
+    stop_event_getter: Optional[Callable[[], Optional[Event]]] = None,
 ) -> List[StructuredTool]:
     tools: List[StructuredTool] = []
     for tool_meta in registry.list_tools():
@@ -61,11 +63,16 @@ def build_tools(
         def _make_tool_func(target_tool_id: str):
             def _tool_func(**kwargs):
                 session_id = session_id_getter() or "default"
+                context: Dict[str, Any] = {"session_id": session_id}
+                if stop_event_getter is not None:
+                    stop_event = stop_event_getter()
+                    if stop_event is not None:
+                        context["stop_event"] = stop_event
                 return registry.invoke(
                     tool_id=target_tool_id,
                     session_id=session_id,
                     input_data=kwargs,
-                    context={"session_id": session_id},
+                    context=context,
                 )
 
             return _tool_func

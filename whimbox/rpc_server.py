@@ -21,6 +21,7 @@ from whimbox.common.scripts_manager import scripts_manager
 
 
 _clients: Set[Any] = set()
+_client_send_locks: Dict[Any, asyncio.Lock] = {}
 _loop: Optional[asyncio.AbstractEventLoop] = None
 _setting_options_cache: Optional[Dict[str, Any]] = None
 _material_options_cache: Optional[list[str]] = None
@@ -36,11 +37,17 @@ async def _broadcast(method: str, params: Dict[str, Any]) -> None:
     stale = []
     for client in _clients:
         try:
-            await client.send(message)
+            lock = _client_send_locks.get(client)
+            if lock is None:
+                await client.send(message)
+            else:
+                async with lock:
+                    await client.send(message)
         except Exception:  # noqa: BLE001
             stale.append(client)
     for client in stale:
         _clients.discard(client)
+        _client_send_locks.pop(client, None)
 
 
 def _notify(method: str, params: Dict[str, Any]) -> None:
@@ -309,6 +316,22 @@ async def _dispatch(method: str, params: Dict[str, Any]) -> Any:
             status_callback=status_callback,
         )
         return {"message": response_text}
+
+    if method == "agent.stop":
+        session_id = params.get("session_id", "default")
+        stop_result = mcp_agent.request_stop(session_id)
+        if not stop_result.get("ok"):
+            return {"ok": False, "tool_running": bool(stop_result.get("tool_running"))}
+        if stop_result.get("tool_running"):
+            _notify(
+                "event.agent.status",
+                {
+                    "session_id": session_id,
+                    "status": "on_tool_stopping",
+                    "detail": "manual_stop",
+                },
+            )
+        return {"ok": True, "tool_running": bool(stop_result.get("tool_running"))}
 
     if method == "session.create":
         name = params.get("name", "")
@@ -628,14 +651,31 @@ async def _handle_message(message: str) -> Optional[Dict[str, Any]]:
 
 
 async def _ws_handler(websocket):
+    async def _process_and_reply(message: str) -> None:
+        response = await _handle_message(message)
+        if response is not None:
+            lock = _client_send_locks.get(websocket)
+            if lock is None:
+                await websocket.send(json.dumps(response, ensure_ascii=False))
+            else:
+                async with lock:
+                    await websocket.send(json.dumps(response, ensure_ascii=False))
+
     _clients.add(websocket)
+    _client_send_locks[websocket] = asyncio.Lock()
+    pending_tasks: Set[asyncio.Task] = set()
     try:
         async for message in websocket:
-            response = await _handle_message(message)
-            if response is not None:
-                await websocket.send(json.dumps(response, ensure_ascii=False))
+            task = asyncio.create_task(_process_and_reply(message))
+            pending_tasks.add(task)
+            task.add_done_callback(pending_tasks.discard)
     finally:
+        for task in list(pending_tasks):
+            task.cancel()
+        if pending_tasks:
+            await asyncio.gather(*pending_tasks, return_exceptions=True)
         _clients.discard(websocket)
+        _client_send_locks.pop(websocket, None)
 
 
 async def start_rpc_server():
