@@ -3,6 +3,7 @@ import json
 import os
 import time
 from typing import Any, Dict, Optional, Set
+from uuid import uuid4
 
 import websockets
 from pynput import keyboard
@@ -30,6 +31,7 @@ _last_overlay_hotkey_ts = 0.0
 _agent_manual_stop_sessions: Set[str] = set()
 _agent_stopping_sessions: Set[str] = set()
 _task_stopping_run_ids: Set[str] = set()
+_agent_active_tool_call_ids: Dict[str, str] = {}
 
 
 async def _broadcast(method: str, params: Dict[str, Any]) -> None:
@@ -73,6 +75,13 @@ def _notify(method: str, params: Dict[str, Any]) -> None:
 
 
 def notify_event(method: str, params: Dict[str, Any]) -> None:
+    if method == "event.run.log" and isinstance(params, dict):
+        source = params.get("source")
+        session_id = str(params.get("session_id") or "default")
+        if source == "task" and not params.get("tool_call_id"):
+            tool_call_id = _agent_active_tool_call_ids.get(session_id, "")
+            if tool_call_id:
+                params = {**params, "tool_call_id": tool_call_id}
     _notify(method, params)
 
 
@@ -84,6 +93,7 @@ def _notify_run_status(
     phase: str,
     tool_id: str = "",
     detail: str = "",
+    tool_call_id: str = "",
     result: Optional[Dict[str, Any]] = None,
     error: str = "",
 ) -> None:
@@ -99,6 +109,8 @@ def _notify_run_status(
         payload["tool_id"] = tool_id
     if detail:
         payload["detail"] = detail
+    if tool_call_id:
+        payload["tool_call_id"] = tool_call_id
     if result is not None:
         payload["result"] = result
     if error:
@@ -113,21 +125,37 @@ def _notify_run_log(
     source: str,
     message: str,
     raw_message: str,
+    tool_call_id: str = "",
     level: str = "info",
     type_: str = "update_ai_message",
 ) -> None:
-    _notify(
-        "event.run.log",
-        {
-            "session_id": session_id or "default",
-            "run_id": run_id or "",
-            "source": source,
-            "message": message,
-            "raw_message": raw_message,
-            "level": level,
-            "type": type_,
-        },
-    )
+    payload: Dict[str, Any] = {
+        "session_id": session_id or "default",
+        "run_id": run_id or "",
+        "source": source,
+        "message": message,
+        "raw_message": raw_message,
+        "level": level,
+        "type": type_,
+    }
+    if tool_call_id:
+        payload["tool_call_id"] = tool_call_id
+    _notify("event.run.log", payload)
+
+
+def _bind_agent_tool_call_id(session_id: str) -> str:
+    sid = session_id or "default"
+    tool_call_id = f"tool_{uuid4().hex}"
+    _agent_active_tool_call_ids[sid] = tool_call_id
+    return tool_call_id
+
+
+def _resolve_agent_tool_call_id(session_id: str) -> str:
+    return _agent_active_tool_call_ids.get(session_id or "default", "")
+
+
+def _clear_agent_tool_call_id(session_id: str) -> None:
+    _agent_active_tool_call_ids.pop(session_id or "default", None)
 
 
 def _emit_agent_stopping(session_id: str, *, detail: str = "manual_stop") -> None:
@@ -135,12 +163,14 @@ def _emit_agent_stopping(session_id: str, *, detail: str = "manual_stop") -> Non
     if sid in _agent_stopping_sessions:
         return
     _agent_stopping_sessions.add(sid)
+    tool_call_id = _resolve_agent_tool_call_id(sid)
     _notify_run_status(
         session_id=sid,
         run_id=sid,
         source="agent",
         phase="stopping",
         detail=detail,
+        tool_call_id=tool_call_id,
     )
     _notify_run_log(
         session_id=sid,
@@ -148,6 +178,7 @@ def _emit_agent_stopping(session_id: str, *, detail: str = "manual_stop") -> Non
         source="agent",
         message="⏳ 停止任务中，请稍后...",
         raw_message="停止任务中，请稍后...",
+        tool_call_id=tool_call_id,
     )
 
 
@@ -425,67 +456,73 @@ async def _dispatch(method: str, params: Dict[str, Any]) -> Any:
         def status_callback(status_type: str, detail: str = "") -> None:
             logger.info(f"Agent status: {status_type}, {detail}")
             if status_type == "on_tool_start":
+                tool_call_id = _bind_agent_tool_call_id(session_id)
                 _notify_run_status(
                     session_id=session_id,
                     run_id=session_id,
                     source="agent",
                     phase="started",
                     detail=detail,
+                    tool_call_id=tool_call_id,
                 )
             elif status_type == "on_tool_stopping":
+                tool_call_id = _resolve_agent_tool_call_id(session_id)
                 _notify_run_status(
                     session_id=session_id,
                     run_id=session_id,
                     source="agent",
                     phase="stopping",
                     detail=detail,
+                    tool_call_id=tool_call_id,
                 )
             elif status_type == "on_tool_end":
                 manually_stopped = session_id in _agent_manual_stop_sessions
+                tool_call_id = _resolve_agent_tool_call_id(session_id)
                 _notify_run_status(
                     session_id=session_id,
                     run_id=session_id,
                     source="agent",
                     phase="cancelled" if manually_stopped else "completed",
                     detail=detail,
+                    tool_call_id=tool_call_id,
                 )
-                _notify(
-                    "event.run.log",
-                    {
-                        "session_id": session_id,
-                        "run_id": session_id,
-                        "source": "agent",
-                        "message": "🛑 任务已停止" if manually_stopped else "✅ 任务已完成",
-                        "raw_message": "任务已停止" if manually_stopped else "任务已完成",
-                        "level": "info",
-                        "type": "finalize_ai_message",
-                    },
+                _notify_run_log(
+                    session_id=session_id,
+                    run_id=session_id,
+                    source="agent",
+                    message="🛑 任务已停止" if manually_stopped else "✅ 任务已完成",
+                    raw_message="任务已停止" if manually_stopped else "任务已完成",
+                    tool_call_id=tool_call_id,
+                    level="info",
+                    type_="finalize_ai_message",
                 )
                 if manually_stopped:
                     _agent_manual_stop_sessions.discard(session_id)
                 _agent_stopping_sessions.discard(session_id)
+                _clear_agent_tool_call_id(session_id)
             elif status_type in {"on_tool_error", "error"}:
+                tool_call_id = _resolve_agent_tool_call_id(session_id)
                 _notify_run_status(
                     session_id=session_id,
                     run_id=session_id,
                     source="agent",
                     phase="error",
                     detail=detail,
+                    tool_call_id=tool_call_id,
                 )
-                _notify(
-                    "event.run.log",
-                    {
-                        "session_id": session_id,
-                        "run_id": session_id,
-                        "source": "agent",
-                        "message": "❌ 任务失败",
-                        "raw_message": "任务失败",
-                        "level": "error",
-                        "type": "finalize_ai_message",
-                    },
+                _notify_run_log(
+                    session_id=session_id,
+                    run_id=session_id,
+                    source="agent",
+                    message="❌ 任务失败",
+                    raw_message="任务失败",
+                    tool_call_id=tool_call_id,
+                    level="error",
+                    type_="finalize_ai_message",
                 )
                 _agent_manual_stop_sessions.discard(session_id)
                 _agent_stopping_sessions.discard(session_id)
+                _clear_agent_tool_call_id(session_id)
 
         response_text = await mcp_agent.query_agent(
             message,
