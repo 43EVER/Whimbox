@@ -853,12 +853,12 @@ async def _dispatch(method: str, params: Dict[str, Any]) -> Any:
         return {"status": "ok"}
 
     if method == "config.get":
-        path = params.get("path", "Game")
+        path = params.get("path", "OneDragon")
         value = _get_config_value(path)
         return {"path": path, "value": value}
 
     if method == "config.meta":
-        section = params.get("section", "Game")
+        section = params.get("section", "OneDragon")
         if section not in DEFAULT_CONFIG:
             raise ValueError(f"config section not found: {section}")
         setting_options = _load_setting_options()

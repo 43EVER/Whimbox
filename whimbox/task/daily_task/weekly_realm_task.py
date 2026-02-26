@@ -10,7 +10,7 @@ from whimbox.common.utils.ui_utils import *
 class WeeklyRealmTask(TaskTemplate):
     def __init__(self, session_id):
         super().__init__(session_id=session_id, name="weekly_realm_task")
-        realm_target = global_config.get("Game", "realm_target")
+        realm_target = global_config.get("OneDragon", "realm_target")
         if realm_target == "全部":
             self.realm_target = ["奇格格达", "卷卷"]
         elif realm_target == "不做周本":

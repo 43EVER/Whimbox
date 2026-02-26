@@ -210,7 +210,7 @@ class ZhaoxiTask(TaskTemplate):
     
     @register_step("消耗剩余体力")
     def step4(self):
-        energy_cost = global_config.get("Game", "energy_cost")
+        energy_cost = global_config.get("OneDragon", "energy_cost")
         if energy_cost == "不消耗剩余体力":
             self.log_to_gui("已设置不消耗剩余体力，跳过")
         elif energy_cost == "素材激化幻境":

@@ -42,7 +42,7 @@ class DigTask(TaskTemplate):
         if target_item_list:
             self.target_item_list = target_item_list
         else:
-            self.target_item_list = global_config.get("Game", "meiyali_dig").split("|")
+            self.target_item_list = global_config.get("OneDragon", "meiyali_dig").split("|")
         self.is_gather_success = False
     
     @register_step("正在前往美鸭梨挖掘")

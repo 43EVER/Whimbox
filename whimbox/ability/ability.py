@@ -196,13 +196,13 @@ class AbilityManager:
         key = self.ability_keymap.get(ability_name, None)
         if key is None:
             # 如果没配置，根据配置文件，配置到对应的方案和键位
-            ability_plan = global_config.get_int('Game', 'ability_plan')
+            ability_plan = global_config.get_int("OneDragon", "ability_plan")
             self._change_ability_plan(ability_plan)
             itt.wait_until_stable(threshold=0.99)
             self._check_ability_keymap()
             key = self.ability_keymap.get(ability_name, None)
             if key is None:
-                ability_key = str(global_config.get_int('Game', 'ability_key'))
+                ability_key = str(global_config.get_int("OneDragon", "ability_key"))
                 if self._set_ability(ability_name, ability_key):
                     key = ability_key
                 else:

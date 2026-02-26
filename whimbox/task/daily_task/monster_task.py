@@ -10,7 +10,7 @@ class MonsterTask(TaskTemplate):
     def __init__(self, session_id, level_name=None):
         super().__init__(session_id=session_id, name="monster_task")
         if not level_name:
-            self.level_name = global_config.get("Game", "monster_target")
+            self.level_name = global_config.get("OneDragon", "monster_target")
         else:
             self.level_name = level_name
         if '|' in self.level_name:
@@ -38,7 +38,7 @@ class MonsterTask(TaskTemplate):
             raise Exception("未找到快速挑战按钮")
         time.sleep(0.5) #等待窗口弹出
         # 如果当前幻境就是默认消耗体力的幻境，就把次数调到最大
-        default_energy_cost = global_config.get("Game", "energy_cost")
+        default_energy_cost = global_config.get("OneDragon", "energy_cost")
         if default_energy_cost == "魔物试炼幻境":
             self.log_to_gui("已允许消耗所有活跃能量！")
             if not DEBUG_MODE:

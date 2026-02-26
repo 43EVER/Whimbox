@@ -231,4 +231,4 @@ class GlobalConfig:
 global_config = GlobalConfig()
 
 if __name__ == "__main__":
-    print(global_config.get("Game", "energy_cost"))
+    print(global_config.get("OneDragon", "energy_cost"))

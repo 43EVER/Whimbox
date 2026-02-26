@@ -20,14 +20,14 @@ class JihuaTask(TaskTemplate):
         if target_material:
             self.target_material = target_material
         else:
-            self.target_material = global_config.get("Game", "jihua_target")
+            self.target_material = global_config.get("OneDragon", "jihua_target")
         if cost_material:
             self.cost_materials = [cost_material]
         else:
             self.cost_materials = [
-                global_config.get("Game", "jihua_cost"), 
-                global_config.get("Game", "jihua_cost_2"), 
-                global_config.get("Game", "jihua_cost_3")]
+                global_config.get("OneDragon", "jihua_cost"), 
+                global_config.get("OneDragon", "jihua_cost_2"), 
+                global_config.get("OneDragon", "jihua_cost_3")]
 
     @register_step("正在前往素材激化幻境")
     def step1(self):
@@ -95,7 +95,7 @@ class JihuaTask(TaskTemplate):
     @register_step("选择激化素材数量")
     def step6(self):
         # 如果当前幻境就是默认消耗体力的幻境，就把次数调到最大
-        default_energy_cost = global_config.get("Game", "energy_cost")
+        default_energy_cost = global_config.get("OneDragon", "energy_cost")
         if default_energy_cost == "素材激化幻境":
             self.log_to_gui("已允许消耗所有活跃能量！")
             if not DEBUG_MODE:
