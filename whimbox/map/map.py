@@ -212,16 +212,6 @@ class Map(MiniMap, BigMap):
         itt.move_to([screen_center_x, screen_center_y], anchor=ANCHOR_CENTER)  # screen center
         itt.left_down()
 
-        # # 瞎几把拖几下地图，防止游戏没反应过来
-        # for i in range(4):
-        #     if i % 2 == 0:
-        #         itt.move_to((5, 5), relative=True)
-        #         itt.left_down()
-        #     else:
-        #         itt.move_to((-5, -5), relative=True)
-        #         itt.left_down()
-        #     time.sleep(0.2)
-
         curr_posi = self.get_bigmap_posi()
         dx = min((curr_posi[0] - target_posi[0]) * self.MAP_POSI2MOVE_POSI_RATE, self.BIGMAP_MOVE_MAX)
         dx = max(dx, -self.BIGMAP_MOVE_MAX)
@@ -232,7 +222,7 @@ class Map(MiniMap, BigMap):
         logger.debug(f"_move_bigmap: {dx} {dy}")
 
         itt.move_to([dx, dy], relative=True, smooth=True)
-        itt.delay(0.5, comment="waiting bigmap move")
+        itt.delay(0.2, comment="waiting bigmap move")
         itt.left_up()
 
         after_move_posi = self.get_bigmap_posi()
