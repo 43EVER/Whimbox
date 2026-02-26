@@ -1,15 +1,46 @@
 import asyncio
+import sys
 
 from whimbox.plugin_runtime import init_plugins
 from whimbox.mcp_agent import mcp_agent
 from whimbox.rpc_server import start_rpc_server
+from whimbox.common.logger import logger
 
 
-def main():
+def _prepare():
+    from whimbox.common.utils.utils import is_admin
+    if not is_admin():
+        logger.error("请用管理员权限运行")
+        exit()
+    from importlib.metadata import PackageNotFoundError, version
+    try:
+        logger.info(f"奇想盒版本号: {version('whimbox')}")
+    except PackageNotFoundError:
+        logger.info(f"奇想盒版本号: dev")
+
+def run_whimbox():
+    _prepare()
     init_plugins()
     asyncio.run(mcp_agent.start())
     asyncio.run(start_rpc_server())
 
+def run_one_dragon():
+    _prepare()
+    from whimbox.task.daily_task.all_in_one_task import AllInOneTask
+    logger.info("开始执行一条龙任务...")
+    task = AllInOneTask(session_id="default")
+    task_result = task.task_run()
+    logger.info(f"一条龙任务完成: {task_result.message}")
+    logger.info("任务结束，程序退出")
+
+def main():
+    if len(sys.argv) > 1:
+        if sys.argv[1] == "startOneDragon":
+            run_one_dragon()
+        else:
+            run_whimbox()
+    else:
+        run_whimbox()
 
 if __name__ == "__main__":
     main()
