@@ -29,7 +29,7 @@ if __name__ == "__main__":
     # cap = crop(cap, IconBGSkipDialog.bbg_posi)
     # print(itt.get_img_existence(IconBGSkipDialog, cap=cap, ret_mode=IMG_RATE, show_res=True))
     while True:
-        print(itt.get_img_existence(ButtonHuanjingGo, ret_mode=IMG_RATE, show_res=True))
+        print(itt.get_img_existence(IconDailyRewardFeature2, ret_mode=IMG_RATE, show_res=True))
         # cv2.imshow("cap", itt.capture(AreaBlessHuanjingDifficulty3.position))
         # cv2.waitKey(1)
         time.sleep(0.5)
