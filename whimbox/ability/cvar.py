@@ -14,7 +14,17 @@ jump_ability_center = (228, 625)
 
 
 # hsv处理后的能力图标，用于匹配
-ability_hsv_icons = [IconAbilityAnimal, IconAbilityInsect, IconAbilityFish, IconAbilityFly, IconAbilitySmall, IconAbilityBig, IconAbilityStick, IconAbilityFlourish]
+ability_hsv_icons = [
+    IconAbilityAnimal, 
+    IconAbilityInsect, 
+    IconAbilityFish, 
+    IconAbilityFly, 
+    IconAbilitySmall, 
+    IconAbilityBig, 
+    IconAbilityStick, 
+    IconAbilityFlourish,
+    IconAbilityShapeshifting,
+]
 jump_ability_hsv_icons = [IconAbilityFloat, IconAbilityWing]
 
 ABILITY_NAME_ANIMAL = '动物清洁'
@@ -25,6 +35,7 @@ ABILITY_NAME_SMALL = '变小'
 ABILITY_NAME_BIG = '变大'
 ABILITY_NAME_STICK = '黏黏爪'
 ABILITY_NAME_FLOURISH = '芳间巡游'
+ABILITY_NAME_SHAPESHIFTING = '化万相'
 
 ABILITY_NAME_FLOAT = '漂浮'
 ABILITY_NAME_WING = '悬羽'
@@ -40,4 +51,5 @@ icon_name_to_ability_name = {
     'IconAbilityBig': ABILITY_NAME_BIG,
     'IconAbilityStick': ABILITY_NAME_STICK,
     'IconAbilityFlourish': ABILITY_NAME_FLOURISH,
+    'IconAbilityShapeshifting': ABILITY_NAME_SHAPESHIFTING,
 }

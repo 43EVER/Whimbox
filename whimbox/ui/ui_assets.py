@@ -59,6 +59,7 @@ IconSkipDialog = ImgIcon(print_log=LOG_NONE, threshold=0.73, gray_limit=(210, 25
 IconMovementWalk = ImgIcon(print_log=LOG_NONE, threshold=0.85, hsv_limit=([0, 0, 210], [180, 50, 255]), anchor=ANCHOR_BOTTOM_RIGHT)
 AreaMaterialGetText = Area(anchor=ANCHOR_BOTTOM_LEFT)
 AreaAbilityButton = Area(anchor=ANCHOR_BOTTOM_RIGHT)
+AreaSubAbilityButton = Area(anchor=ANCHOR_BOTTOM_RIGHT)
 
 # 钓鱼相关
 IconFishingNoFish = ImgIcon(print_log=LOG_WHEN_TRUE, threshold=0.90, hsv_limit=([0,0,175], [20,255,255]), anchor=ANCHOR_TOP_CENTER) # 鱼掉光时候的图标
@@ -162,6 +163,7 @@ IconAbilitySmall = ImgIcon()    # 变小
 IconAbilityBig = ImgIcon()    # 变大
 IconAbilityStick = ImgIcon()    # 黏黏爪
 IconAbilityFlourish = ImgIcon()    # 芳间巡游
+IconAbilityShapeshifting = ImgIcon()    # 化万相
 AreaAbilityChange = Area(anchor=ANCHOR_CENTER)
 ButtonAbilitySave = Button(print_log=LOG_WHEN_TRUE, anchor=ANCHOR_BOTTOM_RIGHT)
 AreaAbilityPlanChangeButton = Area(anchor=ANCHOR_TOP_LEFT)
