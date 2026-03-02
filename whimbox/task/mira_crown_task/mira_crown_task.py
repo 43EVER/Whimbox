@@ -91,6 +91,7 @@ class MiraCrownTask(TaskTemplate):
     @register_step("使用推荐搭配")
     def step5(self):
         wait_until_appear(ButtonMiraCrownNextStep)
+        itt.delay(1, "等待界面加载完全")
         if not scroll_find_click(AreaMiraCrownAutoMatchButton, "推荐搭配", need_scroll=False):
             raise Exception("未找到推荐搭配按钮")
         itt.delay(2, comment="搭配完会卡一下")
