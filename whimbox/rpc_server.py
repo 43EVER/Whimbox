@@ -391,6 +391,90 @@ def _apply_config_update(path: str, value: Any) -> None:
     global_config.set(section, key, value)
 
 
+def _coerce_bool(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in ("true", "1", "yes", "on")
+    return bool(value)
+
+
+def _get_one_dragon_default_steps() -> list[Dict[str, Any]]:
+    section = global_config.config.get("OneDragonDefaultSteps") or {}
+    defaults = DEFAULT_CONFIG.get("OneDragonDefaultSteps") or {}
+    items = []
+    for key, default_item in defaults.items():
+        item = section.get(key) or {}
+        items.append(
+            {
+                "key": key,
+                "label": str(
+                    item.get("description")
+                    or default_item.get("description")
+                    or key
+                ),
+                "enabled": _coerce_bool(item.get("value", default_item.get("value"))),
+            }
+        )
+    return items
+
+
+def _normalize_one_dragon_custom_step(step: Any) -> Dict[str, Any]:
+    if not isinstance(step, dict):
+        raise ValueError("custom step must be an object")
+    step_id = str(step.get("id") or "").strip()
+    if not step_id:
+        raise ValueError("custom step id is required")
+    step_type = str(step.get("type") or "").strip()
+    if step_type not in ("path", "macro", "close_game"):
+        raise ValueError("custom step type must be one of: path, macro, close_game")
+    script_name = str(step.get("script_name") or "").strip()
+    return {
+        "id": step_id,
+        "enabled": _coerce_bool(step.get("enabled", True)),
+        "type": step_type,
+        "script_name": script_name if step_type in ("path", "macro") else "",
+    }
+
+
+def _get_one_dragon_custom_steps() -> list[Dict[str, Any]]:
+    raw_items = []
+    try:
+        raw_items = global_config.get("OneDragonCustomSteps", "items", [])
+    except Exception:
+        raw_items = []
+    if not isinstance(raw_items, list):
+        return []
+    items = []
+    for item in raw_items:
+        try:
+            items.append(_normalize_one_dragon_custom_step(item))
+        except ValueError:
+            continue
+    return items
+
+
+def _update_one_dragon_flow(default_steps: Any = None, custom_steps: Any = None) -> None:
+    valid_default_keys = set((DEFAULT_CONFIG.get("OneDragonDefaultSteps") or {}).keys())
+
+    if default_steps is not None:
+        if not isinstance(default_steps, dict):
+            raise ValueError("default_steps must be an object")
+        for key, enabled in default_steps.items():
+            if key not in valid_default_keys:
+                raise ValueError(f"invalid default step: {key}")
+            global_config.set("OneDragonDefaultSteps", key, "true" if _coerce_bool(enabled) else "false")
+
+    if custom_steps is not None:
+        if not isinstance(custom_steps, list):
+            raise ValueError("custom_steps must be a list")
+        normalized_steps = [_normalize_one_dragon_custom_step(item) for item in custom_steps]
+        global_config.set("OneDragonCustomSteps", "items", normalized_steps)
+
+    if not global_config.save():
+        raise ValueError("config save failed")
+
+
 def _result_response(request_id: Any, result: Any) -> Dict[str, Any]:
     return {"jsonrpc": "2.0", "id": request_id, "result": result}
 
@@ -890,6 +974,23 @@ async def _dispatch(method: str, params: Dict[str, Any]) -> Any:
         if not global_config.save():
             raise ValueError("config save failed")
         return {"ok": True}
+
+    if method == "one_dragon.flow.get":
+        return {
+            "default_steps": _get_one_dragon_default_steps(),
+            "custom_steps": _get_one_dragon_custom_steps(),
+        }
+
+    if method == "one_dragon.flow.update":
+        _update_one_dragon_flow(
+            default_steps=params.get("default_steps"),
+            custom_steps=params.get("custom_steps"),
+        )
+        return {
+            "ok": True,
+            "default_steps": _get_one_dragon_default_steps(),
+            "custom_steps": _get_one_dragon_custom_steps(),
+        }
 
     if method == "background.get":
         return _get_background_state()

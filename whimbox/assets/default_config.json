@@ -117,6 +117,42 @@
             "description": "允许奇想盒使用第几个能力槽位"
         }
     },
+    "OneDragonDefaultSteps": {
+        "step_dig": {
+            "value": "true",
+            "description": "美鸭梨挖掘"
+        },
+        "step_weekly_realm": {
+            "value": "true",
+            "description": "周本"
+        },
+        "step_zhaoxi": {
+            "value": "true",
+            "description": "完成朝夕心愿"
+        },
+        "step_xinghai_run": {
+            "value": "true",
+            "description": "收集星光结晶"
+        },
+        "step_xinghai": {
+            "value": "true",
+            "description": "完成星海拾光"
+        },
+        "step_mira_crown": {
+            "value": "true",
+            "description": "完成奇迹之冠"
+        },
+        "step_monthly_pass": {
+            "value": "true",
+            "description": "领取奇迹之旅奖励"
+        }
+    },
+    "OneDragonCustomSteps": {
+        "items": {
+            "value": [],
+            "description": "一条龙自定义步骤"
+        }
+    },
     "Keybinds": {
         "map":{
             "value": "m",

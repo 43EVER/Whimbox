@@ -1,28 +1,167 @@
-﻿'''朝夕心愿一条龙'''
+'''朝夕心愿一条龙'''
 
 from whimbox.task.task_template import *
 from whimbox.task import daily_task
 from whimbox.task.mira_crown_task.mira_crown_task import MiraCrownTask
 from whimbox.task.daily_task.cvar import *
 from whimbox.task.common_task.start_game_task import StartGameTask
+from whimbox.task.common_task.close_game_task import CloseGameTask
+from whimbox.task.macro_task.run_macro_task import RunMacroTask
+from whimbox.task.navigation_task.auto_path_task import AutoPathTask
 from whimbox.map.detection.cvars import MAP_NAME_MIRALAND, MAP_NAME_UNSUPPORTED
 from whimbox.map.convert import convert_GameLoc_to_PngMapPx
 from whimbox.common.handle_lib import HANDLE_OBJ
+from whimbox.common.scripts_manager import scripts_manager
 from whimbox.task.daily_task.xinghai_run_task import XinghaiRunTask
+
+
+DEFAULT_STEP_CONFIG = [
+    ("step_dig", "step_dig", "美鸭梨挖掘"),
+    ("step_weekly_realm", "step2", "每周幻境"),
+    ("step_zhaoxi", "step3", "朝夕心愿"),
+    ("step_xinghai_run", "step4", "星光结晶收集"),
+    ("step_xinghai", "step5", "星海拾光"),
+    ("step_mira_crown", "step6", "奇迹之冠巅峰赛"),
+    ("step_monthly_pass", "step7", "奇迹之旅"),
+]
+
+STEP_RESULT_SUCCESS = "success"
+STEP_RESULT_FAILED = "failed"
+STEP_RESULT_SKIPPED = "skipped"
+
 
 class AllInOneTask(TaskTemplate):
     def __init__(self, session_id):
         super().__init__(session_id=session_id, name="all_in_one_task")
-        self.zhaoxi_todo_list = []
-        self.task_result_list = {
-            'dig_task': False,
-            'weekly_realm_task': False,
-            'zhaoxi_task': False,
-            'xinghai_run_task': False,
-            'xinghai_task': False,
-            'mira_crown_task': False,
-            'monthly_pass_task': False,
+        self.default_step_states = {
+            key: STEP_RESULT_SKIPPED for key, _, _ in DEFAULT_STEP_CONFIG
         }
+        self.custom_step_results = []
+        self.default_step_enabled = self._load_default_step_enabled()
+        self.custom_steps = self._load_custom_steps()
+        self._rebuild_step_order()
+
+    def _load_default_step_enabled(self):
+        return {
+            key: global_config.get_bool("OneDragonDefaultSteps", key, True)
+            for key, _, _ in DEFAULT_STEP_CONFIG
+        }
+
+    def _load_custom_steps(self):
+        raw_items = global_config.get("OneDragonCustomSteps", "items", [])
+        if not isinstance(raw_items, list):
+            return []
+
+        items = []
+        for raw_item in raw_items:
+            if not isinstance(raw_item, dict):
+                continue
+            step_id = str(raw_item.get("id") or "").strip()
+            step_type = str(raw_item.get("type") or "").strip()
+            if not step_id or step_type not in ("path", "macro", "close_game"):
+                continue
+            script_name = str(raw_item.get("script_name") or "").strip()
+            items.append(
+                {
+                    "id": step_id,
+                    "enabled": bool(raw_item.get("enabled", True)),
+                    "type": step_type,
+                    "script_name": script_name if step_type in ("path", "macro") else "",
+                }
+            )
+        return items
+
+    def _rebuild_step_order(self):
+        step_order = ["step_start_game", "step_start_magnet"]
+
+        if self.default_step_enabled.get("step_dig", True):
+            step_order.append("step_dig")
+
+        later_enabled_keys = [
+            key for key, _, _ in DEFAULT_STEP_CONFIG[1:]
+            if self.default_step_enabled.get(key, True)
+        ]
+        if later_enabled_keys:
+            step_order.append("step_check_in_home")
+            for key in later_enabled_keys:
+                step_order.append(next(step_name for config_key, step_name, _ in DEFAULT_STEP_CONFIG if config_key == key))
+
+        if any(step.get("enabled", True) for step in self.custom_steps):
+            step_order.append("step_custom_steps")
+
+        step_order.append("step8")
+        self.step_order = step_order
+
+    def _set_default_step_result(self, key, task_result):
+        status = getattr(task_result, "status", "")
+        if status == STATE_TYPE_SUCCESS:
+            self.default_step_states[key] = STEP_RESULT_SUCCESS
+        elif status == STATE_TYPE_STOP:
+            self.default_step_states[key] = STEP_RESULT_SKIPPED
+        else:
+            self.default_step_states[key] = STEP_RESULT_FAILED
+
+    def _append_custom_step_result(self, step, status, message=""):
+        self.custom_step_results.append(
+            {
+                "id": step.get("id", ""),
+                "type": step.get("type", ""),
+                "script_name": step.get("script_name", ""),
+                "status": status,
+                "message": message,
+            }
+        )
+
+    def _get_custom_step_title(self, step):
+        step_type = step.get("type")
+        script_name = step.get("script_name") or ""
+        if step_type == "path":
+            return f"执行跑图脚本：{script_name}" if script_name else "执行跑图脚本"
+        if step_type == "macro":
+            return f"执行宏脚本：{script_name}" if script_name else "执行宏脚本"
+        return "关闭游戏"
+
+    def _run_custom_path(self, script_name):
+        path_record = scripts_manager.query_path(path_name=script_name, return_one=True)
+        if path_record is None:
+            return TaskResult(status=STATE_TYPE_FAILED, message=f"路线\"{script_name}\"不存在")
+        return AutoPathTask(self.session_id, path_record=path_record).task_run()
+
+    def _run_custom_macro(self, script_name):
+        macro_record = scripts_manager.query_macro(script_name, is_play_music=False, return_one=True)
+        if macro_record is None:
+            return TaskResult(status=STATE_TYPE_FAILED, message=f"宏\"{script_name}\"不存在")
+        return RunMacroTask(self.session_id, macro_filename=macro_record.info.name).task_run()
+
+    def _run_custom_step(self, step):
+        step_type = step.get("type")
+        if step_type == "path":
+            return self._run_custom_path(step.get("script_name", ""))
+        if step_type == "macro":
+            return self._run_custom_macro(step.get("script_name", ""))
+        if step_type == "close_game":
+            return CloseGameTask(self.session_id).task_run()
+        return TaskResult(status=STATE_TYPE_FAILED, message=f"不支持的步骤类型：{step_type}")
+
+    def _format_default_summary_line(self, key, label):
+        status = self.default_step_states.get(key, STEP_RESULT_SKIPPED)
+        if status == STEP_RESULT_SUCCESS:
+            return f"✅{label}已完成"
+        if status == STEP_RESULT_SKIPPED:
+            return f"⏭️{label}已跳过"
+        return f"❌{label}未完成"
+
+    def _format_custom_summary_line(self, item):
+        title = self._get_custom_step_title(item)
+        status = item.get("status", STEP_RESULT_SKIPPED)
+        message = str(item.get("message") or "").strip()
+        if status == STEP_RESULT_SUCCESS:
+            return f"✅{title}成功"
+        if status == STEP_RESULT_SKIPPED:
+            return f"⏭️{title}已跳过"
+        if message:
+            return f"❌{title}失败：{message}"
+        return f"❌{title}失败"
 
     @register_step("自动启动游戏")
     def step_start_game(self):
@@ -37,30 +176,28 @@ class AllInOneTask(TaskTemplate):
             self.update_task_result(STATE_TYPE_FAILED, task_result.message)
             return STEP_NAME_FINISH
 
-
     @register_step("开启扇子套衍生能力")
     def step_start_magnet(self):
         should_start = global_config.get_bool("OneDragon", "start_magnet")
         if should_start:
             from whimbox.action.magnet import MagnetTask
+
             magnet_task = MagnetTask(session_id=self.session_id)
             magnet_task.task_run()
         else:
             self.log_to_gui("未设置开启扇子套衍生能力")
 
-
     @register_step("美鸭梨挖掘")
     def step_dig(self):
         dig_task = daily_task.DigTaskV2(session_id=self.session_id)
         task_result = dig_task.task_run()
-        self.task_result_list['dig_task'] = task_result.status == STATE_TYPE_SUCCESS
-    
+        self._set_default_step_result("step_dig", task_result)
 
     @register_step("检查是否在家园")
     def step_check_in_home(self):
         from whimbox.map.map import nikki_map
+
         nikki_map.reinit_smallmap()
-        # 如果在不支持的地图（比如家园），就传送到花愿镇
         if nikki_map.map_name == MAP_NAME_UNSUPPORTED:
             self.log_to_gui("传送到大世界")
             loc = convert_GameLoc_to_PngMapPx([-13172.34765625, -54273.6171875], MAP_NAME_MIRALAND)
@@ -70,83 +207,82 @@ class AllInOneTask(TaskTemplate):
     def step2(self):
         weekly_realm_task = daily_task.WeeklyRealmTask(session_id=self.session_id)
         task_result = weekly_realm_task.task_run()
-        self.task_result_list['weekly_realm_task'] = task_result.status == STATE_TYPE_SUCCESS
+        self._set_default_step_result("step_weekly_realm", task_result)
 
     @register_step("开始完成朝夕心愿")
     def step3(self):
         zhaoxi_task = daily_task.ZhaoxiTask(session_id=self.session_id)
         task_result = zhaoxi_task.task_run()
-        self.task_result_list['zhaoxi_task'] = task_result.status == STATE_TYPE_SUCCESS
-    
+        self._set_default_step_result("step_zhaoxi", task_result)
+
     @register_step("收集星光结晶")
     def step4(self):
         xinghai_run_task = XinghaiRunTask(session_id=self.session_id)
         task_result = xinghai_run_task.task_run()
-        self.task_result_list['xinghai_run_task'] = task_result.status == STATE_TYPE_SUCCESS
+        self._set_default_step_result("step_xinghai_run", task_result)
 
     @register_step("开始完成星海拾光")
     def step5(self):
         xinghai_task = daily_task.XinghaiTask(session_id=self.session_id)
         task_result = xinghai_task.task_run()
-        self.task_result_list['xinghai_task'] = task_result.status == STATE_TYPE_SUCCESS
+        self._set_default_step_result("step_xinghai", task_result)
 
     @register_step("开始完成奇迹之冠巅峰赛")
     def step6(self):
         mira_crown_task = MiraCrownTask(session_id=self.session_id)
         task_result = mira_crown_task.task_run()
-        self.task_result_list['mira_crown_task'] = task_result.status == STATE_TYPE_SUCCESS
+        self._set_default_step_result("step_mira_crown", task_result)
 
     @register_step("领取奇迹之旅奖励")
     def step7(self):
         monthly_pass_task = daily_task.MonthlyPassTask(session_id=self.session_id)
         task_result = monthly_pass_task.task_run()
-        self.task_result_list['monthly_pass_task'] = task_result.status == STATE_TYPE_SUCCESS
+        self._set_default_step_result("step_monthly_pass", task_result)
+
+    @register_step("执行自定义步骤")
+    def step_custom_steps(self):
+        for step in self.custom_steps:
+            if not step.get("enabled", True):
+                self._append_custom_step_result(step, STEP_RESULT_SKIPPED)
+                continue
+
+            self.log_to_gui(self._get_custom_step_title(step))
+            task_result = self._run_custom_step(step)
+            status = getattr(task_result, "status", "")
+            message = str(getattr(task_result, "message", "") or "")
+
+            if status == STATE_TYPE_SUCCESS:
+                self._append_custom_step_result(step, STEP_RESULT_SUCCESS, message)
+                continue
+
+            if status == STATE_TYPE_STOP:
+                self._append_custom_step_result(step, STEP_RESULT_SKIPPED, message or "任务已停止")
+                self.update_task_result(status=STATE_TYPE_STOP, message=message or "任务已停止")
+                return STEP_NAME_FINISH
+
+            self._append_custom_step_result(step, STEP_RESULT_FAILED, message)
 
     @register_step("一条龙结束")
     def step8(self):
-        msg = "任务结果如下：\n"
+        msg_lines = ["任务结果如下："]
+        for key, _, label in DEFAULT_STEP_CONFIG:
+            msg_lines.append(self._format_default_summary_line(key, label))
 
-        if self.task_result_list['dig_task']:
-            msg += "✅美鸭梨挖掘成功\n"
-        else:
-            msg += "❌美鸭梨挖掘还无法收获\n"
+        if self.custom_step_results:
+            msg_lines.append("自定义步骤：")
+            for item in self.custom_step_results:
+                msg_lines.append(self._format_custom_summary_line(item))
 
-        if self.task_result_list['weekly_realm_task']:
-            msg += "✅每周幻境已完成\n"
-        else:
-            msg += "❌每周幻境未完成\n"
-
-        if self.task_result_list['zhaoxi_task']:
-            msg += "✅朝夕心愿已完成\n"
-        else:
-            msg += "❌朝夕心愿未完成\n"
-
-        if self.task_result_list['xinghai_run_task']:
-            msg += "✅星光结晶收集已完成\n"
-        else:
-            msg += "❌星光结晶收集未完成\n"
-
-        if self.task_result_list['xinghai_task']:
-            msg += "✅星海拾光已完成\n"
-        else:
-            msg += "❌星海拾光未完成\n"
-
-        if self.task_result_list['mira_crown_task']:
-            msg += "✅奇迹之冠巅峰赛已完成\n"
-        else:
-            msg += "❌奇迹之冠巅峰赛未完成\n"
-
-        if self.task_result_list['monthly_pass_task']:
-            msg += "✅奇迹之旅已领取"
-        else:
-            msg += "❌奇迹之旅未领取"
-            
-        self.update_task_result(message=msg, data=self.task_result_list)
+        self.update_task_result(
+            message="\n".join(msg_lines),
+            data={
+                "default_steps": dict(self.default_step_states),
+                "custom_steps": list(self.custom_step_results),
+            },
+        )
 
 
 if __name__ == "__main__":
     task = AllInOneTask(session_id="debug")
     result = task.task_run()
     print(result.to_dict())
-    # task.step3()
-        
