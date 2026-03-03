@@ -61,6 +61,8 @@ class AllInOneTask(TaskTemplate):
             if not step_id or step_type not in ("path", "macro", "close_game"):
                 continue
             script_name = str(raw_item.get("script_name") or "").strip()
+            if step_type in ("path", "macro") and not script_name:
+                continue
             items.append(
                 {
                     "id": step_id,

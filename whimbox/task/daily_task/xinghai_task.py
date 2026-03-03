@@ -142,19 +142,15 @@ class XinghaiTask(TaskTemplate):
     def step2(self):
         ui_control.goto_page(page_xhsg)
         itt.delay(1, comment="等待页面稳定")
-        itt.wait_until_stable(threshold=0.98)
+        itt.wait_until_stable(threshold=0.99)
         try:
-            score_str = itt.ocr_single_line(AreaXhsgScore, hsv_limit=([0, 0, 250], [0, 0, 255]))
-            score = int(score_str.strip())
-            if score % 100 != 0:
-                raise Exception(f"星海拾光分数识别异常:{score_str}")
+            self.current_score = get_daily_score(AreaXhsgScore)
         except:
-            raise Exception(f"星海拾光分数识别异常:{score_str}")
-        self.current_score = score
-        if score == 500:
+            self.current_score = 0
+        if self.current_score == 500:
             return "step5"
         else:
-            self.log_to_gui(f"星海拾光完成度：{score}/500")
+            self.log_to_gui(f"星海拾光完成度：{self.current_score}/500")
             return
 
     @register_step("查看星海拾光具体任务")
@@ -238,19 +234,19 @@ class XinghaiTask(TaskTemplate):
             else:
                 self.log_to_gui(f"暂不支持任务\"{task_name}\"，继续其他任务", is_error=True)
 
+
     @register_step("领取星海拾光奖励")
     def step5(self):
         ui_control.goto_page(page_xhsg)
         itt.delay(1, comment="等待页面稳定")
-        itt.wait_until_stable(threshold=0.98)
-        if not itt.get_img_existence(ButtonXhsgRewarded):
-            ButtonXhsgRewarded.click()
-            if skip_get_award():
-                self.update_task_result(message="成功领取星海拾光奖励")
-            else:
-                self.update_task_result(status=STATE_TYPE_FAILED, message="星海日常未完成")
+        itt.wait_until_stable(threshold=0.99)
+        score = get_daily_score(AreaXhsgScore)
+        if score != 500:
+            self.update_task_result(status=STATE_TYPE_FAILED, message="星海拾光未完成")
         else:
-            self.update_task_result(message="星海拾光奖励已被领取过，无需再次领取")
+            self.update_task_result(message="星海拾光已完成")
+        get_daily_reward(AreaXhsgRewards)
+
 
     @register_step("退出星海拾光")
     def step6(self):

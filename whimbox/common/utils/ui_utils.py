@@ -354,14 +354,66 @@ def skip_get_award():
     else:
         return False
         
-            
+
+def get_daily_score(area:Area):
+    try:
+        score_str = itt.ocr_single_line(area, hsv_limit=([0, 0, 250], [0, 0, 255]))
+        score = int(score_str.strip())
+        if score % 100 != 0:
+            raise Exception(f"分数识别异常:{score_str}")
+        else:
+            return score
+    except:
+        raise Exception(f"分数识别异常:{score_str}")
+
+def get_daily_reward(area:Area):
+    cap = itt.capture(area.position)
+    lower = [0, 0, 125]
+    upper = [30, 255, 255]
+    cap_hsv = process_with_hsv_limit(cap, lower, upper)
+    circles = cv2.HoughCircles(
+        cap_hsv,
+        cv2.HOUGH_GRADIENT,
+        dp=1,          # 累加器分辨率（可调 1.0~1.5）
+        minDist=100,      # 圆心最小间距，建议≈ 2*minRadius - 些许
+        param1=60,      # Canny高阈值
+        param2=8,       # 累加器阈值，越小越容易出圆（可调 8~18）
+        minRadius=30,
+        maxRadius=35
+    )
+    target_circle = None
+    if circles is not None:
+        for x, y, r in circles[0, :]:
+            if not target_circle:
+                target_circle = (x, y, r)
+                break
+
+    if CV_DEBUG_MODE and target_circle:
+        x, y, r = np.uint16(np.around(target_circle))
+        new_cap = cap.copy()
+        cv2.circle(new_cap, (x, y), r, (0, 0, 255), 2)
+        cv2.circle(new_cap, (x, y), 2, (0, 0, 255), 3)
+        cv2.imshow("target_reward", new_cap)
+        cv2.waitKey(0)
+
+    if target_circle:
+        x, y, r = target_circle
+        target_box = (x-r, y-r, x+r, y+r)
+        area.click(target_box)
+        skip_get_award()
+        return True
+    else:
+        return False
+
+
+
 if __name__ == "__main__":
     # while True:
     #     print(itt.get_img_existence(IconDungeonFeature, ret_mode=IMG_RATE))
     #     time.sleep(1)
     # back_to_page_main()
-    CV_DEBUG_MODE = True
-    from whimbox.ui.material_icon_assets import material_icon_dict
+    # CV_DEBUG_MODE = True
+    # from whimbox.ui.material_icon_assets import material_icon_dict
     # material_name = "纯真丝线"
     # material_name = "玉簪蚱蜢"
     # target = material_icon_dict[material_name]["icon"]
@@ -377,7 +429,9 @@ if __name__ == "__main__":
 
     # scroll_find_click(AreaBlessHuanjingLevelsSelect, "翻滚", str_match_mode=1)
     # scroll_find_click(AreaEscEntrances, "美鸭梨挖掘")
-    cap = cv2.imread(r"D:\workspaces\python\Whimbox\tools\snapshot\1768526354.406669.png")
-    print(find_game_img(GameImgStarCrystal, cap, threshold=0.70, scale=1, count=3))
+    # cap = cv2.imread(r"D:\workspaces\python\Whimbox\tools\snapshot\1768526354.406669.png")
+    # print(find_game_img(GameImgStarCrystal, cap, threshold=0.70, scale=1, count=3))
+    
+    print(get_daily_reward(AreaXhsgRewards))
 
     
