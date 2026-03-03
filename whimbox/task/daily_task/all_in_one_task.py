@@ -284,5 +284,6 @@ class AllInOneTask(TaskTemplate):
 
 if __name__ == "__main__":
     task = AllInOneTask(session_id="debug")
-    result = task.task_run()
-    print(result.to_dict())
+    # result = task.task_run()
+    # print(result.to_dict())
+    task.step_check_in_home()
