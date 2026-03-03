@@ -219,7 +219,7 @@ def scroll_find_click(area: Area, target, threshold=0, hsv_limit=None, scale=0, 
             # 如果第一次没找到目标，就先把画面滚到顶，再开始寻找
             if is_first_time:
                 logger.info(f"第一次没找到目标，先把画面滚到顶")
-                cap = scroll_to_top(area, scroll_distance)
+                cap = scroll_to_top(area)
                 is_first_time = False
             else:
                 # 如果没找到目标，就把鼠标移到area的右下角，向下滚动
@@ -247,7 +247,7 @@ def scroll_find_click(area: Area, target, threshold=0, hsv_limit=None, scale=0, 
         return False
 
 
-def scroll_to_top(area: Area, scroll_distance=15):
+def scroll_to_top(area: Area):
     # 鼠标移到area的右下角
     # todo: 支持expand，不过暂时没什么关系
     scroll_posi = (area.position.x2, area.position.y2)
@@ -257,7 +257,7 @@ def scroll_to_top(area: Area, scroll_distance=15):
         stop_flag = get_current_stop_flag()
         if stop_flag.is_set():
             return last_cap
-        itt.middle_scroll(scroll_distance)
+        itt.middle_scroll(15)
         time.sleep(0.2)
         new_cap = itt.capture(anchor_posi=area.position)
         rate = similar_img(last_cap, new_cap)

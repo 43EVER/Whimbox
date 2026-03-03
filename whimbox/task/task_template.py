@@ -11,6 +11,7 @@ from pynput import keyboard
 import time
 import traceback
 import threading
+from itertools import count
 
 STATE_TYPE_SUCCESS = "success"  # 成功
 STATE_TYPE_ERROR = "error"      # 错误，会引发一次重试
@@ -18,6 +19,7 @@ STATE_TYPE_STOP = "stop"        # 手动停止，不会引发重试
 STATE_TYPE_FAILED = "failed"    # 失败，不会引发重试
 
 STEP_NAME_FINISH = "step_finish"
+_REGISTER_STEP_COUNTER = count()
 
 class state:
     def __init__(self, type="", msg=""):
@@ -39,6 +41,7 @@ def register_step(state_msg=""):
     def wrapper(func):
         func._register_step = True
         func._state_msg = state_msg
+        func._register_step_order = next(_REGISTER_STEP_COUNTER)
         return func
     return wrapper
 
@@ -140,18 +143,28 @@ class TaskTemplate:
 
     def __auto_register_steps(self):
         """自动注册带有_register_step标记的方法"""
-        # 获取类的所有方法，包括继承的
-        for method_name in self.__class__.__dict__.keys():
-            # 跳过私有方法和特殊方法
-            if method_name.startswith('__'):
-                continue
-            
-            method = getattr(self, method_name)
-            # 检查是否是可调用的方法且有注册标记
-            if callable(method) and hasattr(method, "_register_step"):
-                task_step = TaskStep(method, method_name, STATE_TYPE_SUCCESS, method._state_msg)
-                self.steps_dict[method_name] = task_step
-                self.step_order.append(method_name)
+        # 扫描继承链，优先使用子类覆盖的方法，再按装饰器注册顺序排序
+        registered_methods = []
+        seen_method_names = set()
+
+        for cls in self.__class__.__mro__:
+            for method_name, _ in cls.__dict__.items():
+                if method_name.startswith("__") or method_name in seen_method_names:
+                    continue
+
+                seen_method_names.add(method_name)
+                method = getattr(self, method_name, None)
+                if callable(method) and hasattr(method, "_register_step"):
+                    registered_methods.append(
+                        (method._register_step_order, method_name, method)
+                    )
+
+        registered_methods.sort(key=lambda item: item[0])
+
+        for _, method_name, method in registered_methods:
+            task_step = TaskStep(method, method_name, STATE_TYPE_SUCCESS, method._state_msg)
+            self.steps_dict[method_name] = task_step
+            self.step_order.append(method_name)
 
 
     def on_error(self, state_msg=""):
