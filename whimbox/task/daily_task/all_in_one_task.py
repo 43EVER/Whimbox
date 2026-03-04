@@ -285,6 +285,10 @@ class AllInOneTask(TaskTemplate):
             },
         )
 
+    def handle_finally(self):
+        # 有可能最后一步是关闭游戏，要额外判断一下避免finally时报错
+        if HANDLE_OBJ.is_alive():
+            return super().handle_finally()
 
 if __name__ == "__main__":
     task = AllInOneTask(session_id="debug")

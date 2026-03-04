@@ -599,6 +599,8 @@ async def _run_registered_task(
             },
         )
     except Exception as exc:  # noqa: BLE001
+        import traceback
+        logger.error(traceback.format_exc())
         task_manager.set_state(task.task_id, "ERROR", error=str(exc))
         _notify_run_status(
             session_id=session_id,
