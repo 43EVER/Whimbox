@@ -194,6 +194,7 @@ class AbilityManager:
         # 如果当前能力已经符合，就直接返回
         if self.current_ability == ability_name:
             return True
+        back_to_page_main()
         self.current_ability = self.get_current_ability()
         if self.current_ability == ability_name:
             return True
