@@ -38,6 +38,13 @@ class SessionManager:
             self._sessions[session_id] = session
         return session
 
+    def find_default_session(self) -> Optional[Dict[str, Any]]:
+        with self._lock:
+            for session in self._sessions.values():
+                if session.name == "default" and session.profile == "default":
+                    return asdict(session)
+        return None
+
     def list(self) -> List[Dict[str, Any]]:
         with self._lock:
             return [asdict(item) for item in self._sessions.values()]

@@ -72,6 +72,10 @@
         }
     },
     "OneDragon": {
+        "auto_start": {
+            "value": "false",
+            "description": "启动奇想盒时，自动运行一条龙"
+        },
         "start_magnet": {
             "value": "false",
             "description": "开启扇子套衍生能力"

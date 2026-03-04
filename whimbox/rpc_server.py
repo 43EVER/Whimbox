@@ -31,6 +31,7 @@ _last_overlay_hotkey_ts = 0.0
 _agent_stopping_sessions: Set[str] = set()
 _task_stopping_run_ids: Set[str] = set()
 _agent_active_tool_call_ids: Dict[str, str] = {}
+_one_dragon_auto_start_scheduled = False
 
 
 async def _broadcast(method: str, params: Dict[str, Any]) -> None:
@@ -475,6 +476,221 @@ def _update_one_dragon_flow(default_steps: Any = None, custom_steps: Any = None)
         raise ValueError("config save failed")
 
 
+async def _run_registered_task(
+    task: Any,
+    *,
+    session_id: str,
+    tool_id: str,
+    input_data: Dict[str, Any],
+) -> None:
+    registry = get_registry()
+    task_manager.set_state(task.task_id, "RUNNING")
+    _task_stopping_run_ids.discard(task.task_id)
+    _notify_run_status(
+        session_id=session_id,
+        run_id=task.task_id,
+        source="task",
+        phase="started",
+        tool_id=tool_id,
+    )
+    try:
+        result = await asyncio.to_thread(
+            registry.invoke,
+            tool_id,
+            session_id,
+            input_data,
+            {"session_id": session_id, "stop_event": task.stop_event, "run_id": task.task_id},
+        )
+        result_status = ""
+        if isinstance(result, dict):
+            result_status = str(result.get("status") or "").lower()
+
+        if result_status == "stop":
+            task_manager.set_state(task.task_id, "CANCELLED", result=result)
+            _notify_run_status(
+                session_id=session_id,
+                run_id=task.task_id,
+                source="task",
+                phase="cancelled",
+                tool_id=tool_id,
+                result=result,
+            )
+            msg = str((result or {}).get("message") or "任务已停止")
+            _notify(
+                "event.run.log",
+                {
+                    "session_id": session_id,
+                    "run_id": task.task_id,
+                    "source": "task",
+                    "message": f"🛑 任务已停止：{msg}",
+                    "raw_message": msg,
+                    "level": "info",
+                    "type": "finalize_ai_message",
+                },
+            )
+        elif result_status in {"error", "failed"}:
+            error_msg = str((result or {}).get("message") or "Task failed")
+            task_manager.set_state(task.task_id, "ERROR", error=error_msg, result=result)
+            _notify_run_status(
+                session_id=session_id,
+                run_id=task.task_id,
+                source="task",
+                phase="error",
+                tool_id=tool_id,
+                result=result,
+                error=error_msg,
+            )
+            _notify(
+                "event.run.log",
+                {
+                    "session_id": session_id,
+                    "run_id": task.task_id,
+                    "source": "task",
+                    "message": f"❌ 任务失败：{error_msg}",
+                    "raw_message": error_msg,
+                    "level": "error",
+                    "type": "finalize_ai_message",
+                },
+            )
+        else:
+            task_manager.set_state(task.task_id, "SUCCESS", result=result)
+            _notify_run_status(
+                session_id=session_id,
+                run_id=task.task_id,
+                source="task",
+                phase="completed",
+                tool_id=tool_id,
+                result=result,
+            )
+            msg = str((result or {}).get("message") or "任务已完成")
+            _notify(
+                "event.run.log",
+                {
+                    "session_id": session_id,
+                    "run_id": task.task_id,
+                    "source": "task",
+                    "message": f"✅ 任务已完成：{msg}",
+                    "raw_message": msg,
+                    "level": "info",
+                    "type": "finalize_ai_message",
+                },
+            )
+    except asyncio.CancelledError:
+        cancelled_result = {"status": "stop", "message": "手动停止"}
+        task_manager.set_state(task.task_id, "CANCELLED", result=cancelled_result)
+        _notify_run_status(
+            session_id=session_id,
+            run_id=task.task_id,
+            source="task",
+            phase="cancelled",
+            tool_id=tool_id,
+            result=cancelled_result,
+        )
+        _notify(
+            "event.run.log",
+            {
+                "session_id": session_id,
+                "run_id": task.task_id,
+                "source": "task",
+                "message": "🛑 任务已停止：手动停止",
+                "raw_message": "手动停止",
+                "level": "info",
+                "type": "finalize_ai_message",
+            },
+        )
+    except Exception as exc:  # noqa: BLE001
+        task_manager.set_state(task.task_id, "ERROR", error=str(exc))
+        _notify_run_status(
+            session_id=session_id,
+            run_id=task.task_id,
+            source="task",
+            phase="error",
+            tool_id=tool_id,
+            error=str(exc),
+        )
+        _notify(
+            "event.run.log",
+            {
+                "session_id": session_id,
+                "run_id": task.task_id,
+                "source": "task",
+                "message": f"❌ 任务失败：{exc}",
+                "raw_message": str(exc),
+                "level": "error",
+                "type": "finalize_ai_message",
+            },
+        )
+        _notify(
+            "event.error",
+            {
+                "session_id": session_id,
+                "code": 1201,
+                "message": "Task failed",
+                "detail": {"task_id": task.task_id, "error": str(exc)},
+            },
+        )
+    finally:
+        _task_stopping_run_ids.discard(task.task_id)
+        idle_state = session_manager.set_state(session_id, "IDLE")
+        if idle_state:
+            _notify("event.session.state", idle_state)
+
+
+def _start_registered_task(
+    *,
+    session_id: str,
+    tool_id: str,
+    input_data: Optional[Dict[str, Any]] = None,
+    require_session: bool = True,
+) -> Dict[str, Any]:
+    resolved_session_id = str(session_id or "default")
+    resolved_input = input_data or {}
+
+    if require_session and not session_manager.get(resolved_session_id):
+        raise ValueError("session not found")
+
+    task = task_manager.create(session_id=resolved_session_id, tool_id=tool_id)
+    session_state = session_manager.set_state(resolved_session_id, "RUNNING")
+    if session_state:
+        _notify("event.session.state", session_state)
+
+    asyncio_task = asyncio.create_task(
+        _run_registered_task(
+            task,
+            session_id=resolved_session_id,
+            tool_id=tool_id,
+            input_data=resolved_input,
+        )
+    )
+    task_manager.attach_asyncio_task(task.task_id, asyncio_task)
+    return {"task_id": task.task_id}
+
+
+def _auto_start_one_dragon(session_id: str) -> None:
+    global _one_dragon_auto_start_scheduled
+
+    if _one_dragon_auto_start_scheduled:
+        return
+    if not global_config.get_bool("OneDragon", "auto_start", False):
+        return
+
+    _one_dragon_auto_start_scheduled = True
+
+    try:
+        result = _start_registered_task(
+            session_id=session_id,
+            tool_id="nikki.all_in_one",
+            input_data={},
+            require_session=True,
+        )
+        logger.info(
+            f"已根据 OneDragon.auto_start 自动启动一条龙任务: {result['task_id']} (session_id={session_id})"
+        )
+    except Exception as exc:  # noqa: BLE001
+        _one_dragon_auto_start_scheduled = False
+        logger.exception(f"自动启动一条龙任务失败: {exc}")
+
+
 def _result_response(request_id: Any, result: Any) -> Dict[str, Any]:
     return {"jsonrpc": "2.0", "id": request_id, "result": result}
 
@@ -651,8 +867,24 @@ async def _dispatch(method: str, params: Dict[str, Any]) -> Any:
         name = params.get("name", "")
         profile = params.get("profile", "default")
         metadata = params.get("metadata", {}) or {}
-        session = session_manager.create(name=name, profile=profile, metadata=metadata)
+        normalized_name = name or "default"
+        normalized_profile = profile or "default"
+
+        if normalized_name == "default" and normalized_profile == "default":
+            existing_session = session_manager.find_default_session()
+            if existing_session:
+                _notify("event.session.state", existing_session)
+                existing_session_id = str(existing_session.get("session_id") or "")
+                _auto_start_one_dragon(existing_session_id)
+                return {"session_id": existing_session_id}
+
+        session = session_manager.create(
+            name=name,
+            profile=profile,
+            metadata=metadata,
+        )
         _notify("event.session.state", session_manager.get(session.session_id) or {})
+        _auto_start_one_dragon(session.session_id)
         return {"session_id": session.session_id}
 
     if method == "session.list":
@@ -703,170 +935,12 @@ async def _dispatch(method: str, params: Dict[str, Any]) -> Any:
             raise ValueError("session_id is required")
         if not tool_id:
             raise ValueError("tool_id is required")
-        if not session_manager.get(session_id):
-            raise ValueError("session not found")
-
-        task = task_manager.create(session_id=session_id, tool_id=tool_id)
-        session_state = session_manager.set_state(session_id, "RUNNING")
-        if session_state:
-            _notify("event.session.state", session_state)
-
-        async def _run_task():
-            registry = get_registry()
-            task_manager.set_state(task.task_id, "RUNNING")
-            _task_stopping_run_ids.discard(task.task_id)
-            _notify_run_status(
-                session_id=session_id,
-                run_id=task.task_id,
-                source="task",
-                phase="started",
-                tool_id=tool_id,
-            )
-            try:
-                result = await asyncio.to_thread(
-                    registry.invoke,
-                    tool_id,
-                    session_id,
-                    input_data,
-                    {"session_id": session_id, "stop_event": task.stop_event, "run_id": task.task_id},
-                )
-                result_status = ""
-                if isinstance(result, dict):
-                    result_status = str(result.get("status") or "").lower()
-
-                if result_status == "stop":
-                    task_manager.set_state(task.task_id, "CANCELLED", result=result)
-                    _notify_run_status(
-                        session_id=session_id,
-                        run_id=task.task_id,
-                        source="task",
-                        phase="cancelled",
-                        tool_id=tool_id,
-                        result=result,
-                    )
-                    msg = str((result or {}).get("message") or "任务已停止")
-                    _notify(
-                        "event.run.log",
-                        {
-                            "session_id": session_id,
-                            "run_id": task.task_id,
-                            "source": "task",
-                            "message": f"🛑 任务已停止：{msg}",
-                            "raw_message": msg,
-                            "level": "info",
-                            "type": "finalize_ai_message",
-                        },
-                    )
-                elif result_status in {"error", "failed"}:
-                    error_msg = str((result or {}).get("message") or "Task failed")
-                    task_manager.set_state(task.task_id, "ERROR", error=error_msg, result=result)
-                    _notify_run_status(
-                        session_id=session_id,
-                        run_id=task.task_id,
-                        source="task",
-                        phase="error",
-                        tool_id=tool_id,
-                        result=result,
-                        error=error_msg,
-                    )
-                    _notify(
-                        "event.run.log",
-                        {
-                            "session_id": session_id,
-                            "run_id": task.task_id,
-                            "source": "task",
-                            "message": f"❌ 任务失败：{error_msg}",
-                            "raw_message": error_msg,
-                            "level": "error",
-                            "type": "finalize_ai_message",
-                        },
-                    )
-                else:
-                    task_manager.set_state(task.task_id, "SUCCESS", result=result)
-                    _notify_run_status(
-                        session_id=session_id,
-                        run_id=task.task_id,
-                        source="task",
-                        phase="completed",
-                        tool_id=tool_id,
-                        result=result,
-                    )
-                    msg = str((result or {}).get("message") or "任务已完成")
-                    _notify(
-                        "event.run.log",
-                        {
-                            "session_id": session_id,
-                            "run_id": task.task_id,
-                            "source": "task",
-                            "message": f"✅ 任务已完成：{msg}",
-                            "raw_message": msg,
-                            "level": "info",
-                            "type": "finalize_ai_message",
-                        },
-                    )
-            except asyncio.CancelledError:
-                cancelled_result = {"status": "stop", "message": "手动停止"}
-                task_manager.set_state(task.task_id, "CANCELLED", result=cancelled_result)
-                _notify_run_status(
-                    session_id=session_id,
-                    run_id=task.task_id,
-                    source="task",
-                    phase="cancelled",
-                    tool_id=tool_id,
-                    result=cancelled_result,
-                )
-                _notify(
-                    "event.run.log",
-                    {
-                        "session_id": session_id,
-                        "run_id": task.task_id,
-                        "source": "task",
-                        "message": "🛑 任务已停止：手动停止",
-                        "raw_message": "手动停止",
-                        "level": "info",
-                        "type": "finalize_ai_message",
-                    },
-                )
-            except Exception as exc:  # noqa: BLE001
-                task_manager.set_state(task.task_id, "ERROR", error=str(exc))
-                _notify_run_status(
-                    session_id=session_id,
-                    run_id=task.task_id,
-                    source="task",
-                    phase="error",
-                    tool_id=tool_id,
-                    error=str(exc),
-                )
-                _notify(
-                    "event.run.log",
-                    {
-                        "session_id": session_id,
-                        "run_id": task.task_id,
-                        "source": "task",
-                        "message": f"❌ 任务失败：{exc}",
-                        "raw_message": str(exc),
-                        "level": "error",
-                        "type": "finalize_ai_message",
-                    },
-                )
-                _notify(
-                    "event.error",
-                    {
-                        "session_id": session_id,
-                        "code": 1201,
-                        "message": "Task failed",
-                        "detail": {"task_id": task.task_id, "error": str(exc)},
-                    },
-                )
-            finally:
-                _task_stopping_run_ids.discard(task.task_id)
-                idle_state = session_manager.set_state(session_id, "IDLE")
-                if idle_state:
-                    _notify("event.session.state", idle_state)
-
-        asyncio_task = asyncio.create_task(_run_task())
-        task_manager.attach_asyncio_task(task.task_id, asyncio_task)
-        return {"task_id": task.task_id}
+        return _start_registered_task(
+            session_id=session_id,
+            tool_id=tool_id,
+            input_data=input_data,
+            require_session=True,
+        )
 
     if method == "task.stop":
         task_id = params.get("task_id")

@@ -23,8 +23,11 @@ def run_whimbox():
     from whimbox.mcp_agent import mcp_agent
     from whimbox.rpc_server import start_rpc_server
 
+    logger.info("加载插件……")
     init_plugins()
+    logger.info("启动agent……")
     asyncio.run(mcp_agent.start())
+    logger.info("启动rpc服务器……")
     asyncio.run(start_rpc_server())
 
 def run_one_dragon():
