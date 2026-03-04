@@ -53,8 +53,10 @@ class PickupTask(TaskTemplate):
             message=res,
             data=self.material_count_dict
         )
+    
+    def handle_finally(self):
+        pass
 
 if __name__ == "__main__":
-    while True:
-        pickup_task = PickupTask(session_id="debug")
-        pickup_task.task_run()
+    pickup_task = PickupTask(session_id="debug")
+    pickup_task.task_run()

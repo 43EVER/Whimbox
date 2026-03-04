@@ -263,6 +263,9 @@ class FishingTask(TaskTemplate):
 
         return FishingResult.SUCCESS
 
+    def handle_finally(self):
+        pass
+
 
 if __name__ == "__main__":
     # # CV_DEBUG_MODE = True

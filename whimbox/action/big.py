@@ -15,6 +15,9 @@ class BigTask(TaskTemplate):
             return STEP_NAME_FINISH
         itt.right_click()
 
+    def handle_finally(self):
+        pass
+
 if __name__ == "__main__":
     task = BigTask(session_id="debug")
     task.task_run()

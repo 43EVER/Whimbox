@@ -34,6 +34,9 @@ def _error(message: str) -> Dict[str, Any]:
 def _check_game_ok(session_id: str = "default") -> Dict[str, Any]:
     if not HANDLE_OBJ.is_alive():
         return _error("游戏未启动，请先启动游戏")
+    # 将游戏窗口前置
+    HANDLE_OBJ.set_foreground()
+    
     shape_ok, width, height = HANDLE_OBJ.check_shape()
     if not shape_ok:
         return _error("奇想盒只支持16:9与16:10的游戏分辨率")
@@ -57,8 +60,6 @@ def _check_game_ok(session_id: str = "default") -> Dict[str, Any]:
             },
         )
         logger.info(msg)
-    # 将游戏窗口前置
-    HANDLE_OBJ.set_foreground()
     return {}
 
 

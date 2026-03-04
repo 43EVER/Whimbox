@@ -19,6 +19,9 @@ class FlourishTask(TaskTemplate):
         time.sleep(5)
         itt.right_click()
 
+    def handle_finally(self):
+        pass
+
 if __name__ == "__main__":
     task = FlourishTask(session_id="debug")
     task.task_run()
