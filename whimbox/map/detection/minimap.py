@@ -391,25 +391,27 @@ if __name__ == '__main__':
     import time
     from whimbox.map.convert import convert_GameLoc_to_PngMapPx
     minimap = MiniMap()
-    minimap.map_name = MAP_NAME_MIRALAND
+    # minimap.map_name = MAP_NAME_MIRALAND
     # minimap.init_position((2800*2, 3920*2)) # 疯愿之子营地
     # minimap.init_position((3213*2, 2203*2)) # 花愿镇，搭配师协会
-    minimap.init_position(convert_GameLoc_to_PngMapPx((-13351.5, -41940), MAP_NAME_MIRALAND))
+    # minimap.init_position(convert_GameLoc_to_PngMapPx((-13351.5, -41940), MAP_NAME_MIRALAND))
     # minimap.init_position((5650.7, 4531.5)) # 蓝龙
     # minimap.map_name = MAP_NAME_STARSEA
     # minimap.init_position((3087.6,2260.0)) # 海滩
     # minimap.init_position((2030.8, 1394.4)) # 晶簇之谷
+    minimap.map_name = MAP_NAME_HOME
+    minimap.init_position(convert_GameLoc_to_PngMapPx((4724.2218449652, 9033.282368272), MAP_NAME_HOME))
 
     CV_DEBUG_MODE = True
     # 定位测试
-    if False:
+    if True:
         while 1:
             time.sleep(0.1)
             minimap.update_position(itt.capture())
             print(minimap.position)
 
     # 镜头朝向测试
-    if True:
+    if False:
         while 1:
             time.sleep(0.1)
             minimap.update_rotation(itt.capture(), update_position=True)

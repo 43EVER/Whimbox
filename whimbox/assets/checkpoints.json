@@ -1553,5 +1553,29 @@
                 54790.9140625
             ]
         }
+    ],
+    "home": [
+        {
+            "region": "家园",
+            "province": "家园",
+            "map": "home",
+            "type": "teleporter",
+            "name": "星实之树",
+            "position": [
+                1081.9863985682,
+                3917.3340065202
+            ]
+        },
+        {
+            "region": "家园",
+            "province": "家园",
+            "map": "home",
+            "type": "teleporter",
+            "name": "家园码头",
+            "position": [
+                4724.2218449652,
+                9033.282368272
+            ]
+        }
     ]
 }

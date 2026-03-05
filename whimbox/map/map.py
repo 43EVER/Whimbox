@@ -260,6 +260,10 @@ class Map(MiniMap, BigMap):
             if dist < min_dist:
                 min_teleporter = checkpoint
                 min_dist = dist
+        if map_name == MAP_NAME_HOME:
+            home_name = global_config.get("OneDragon", "home_name")
+            min_teleporter.region = home_name
+            min_teleporter.province = home_name
         return min_teleporter
 
     def _switch_to_area(self, tp_province, tp_region):
@@ -313,6 +317,8 @@ class Map(MiniMap, BigMap):
             TianLiPosition: _description_
         """
         logger.debug(f'bigmap tp to: {posi}')
+        if map_name == MAP_NAME_HOME and global_config.get("OneDragon", "home_name") == "":
+            raise Exception("家园名称未设置，请先前往一条龙配置中设置")
         ui_control.ensure_page(page_bigmap)
         target_teleporter = self.find_closest_teleporter(posi, map_name)
         tp_posi = target_teleporter.position

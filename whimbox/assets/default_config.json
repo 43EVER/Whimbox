@@ -112,6 +112,10 @@
             "value": "全部",
             "description": "周本的默认目标"
         },
+        "home_name": {
+            "value": "",
+            "description": "家园名称"
+        },
         "ability_plan": {
             "value": 3,
             "description": "允许奇想盒使用第几号能力配置方案"

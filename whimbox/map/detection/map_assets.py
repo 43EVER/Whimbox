@@ -52,6 +52,13 @@ StarSeaBigMap = MapAsset("w14000000_v2_luma_0125x")
 # 星海地图，可匹配位置遮罩
 StarSeaBigMapMask = MapAsset("w14000000_v2_mask_0125x")
 
+# 家园地图，用于小地图位置匹配
+HomeMap = MapAsset("w8000001_v1_luma_05x")
+# 家园地图，用于大地图匹配
+HomeBigMap = MapAsset("w8000001_v1_luma_0125x")
+# 家园地图，可匹配位置遮罩
+HomeBigMapMask = MapAsset("w8000001_v1_mask_0125x")
+
 MAP_ASSETS_DICT = {
     MAP_NAME_MIRALAND: {
         "luma_05x": MiraLandMap,
@@ -62,5 +69,10 @@ MAP_ASSETS_DICT = {
         "luma_05x": StarSeaMap,
         "luma_0125x": StarSeaBigMap,
         "mask_0125x": StarSeaBigMapMask
+    },
+    MAP_NAME_HOME: {
+        "luma_05x": HomeMap,
+        "luma_0125x": HomeBigMap,
+        "mask_0125x": HomeBigMapMask
     }
 }

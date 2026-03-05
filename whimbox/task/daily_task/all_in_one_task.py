@@ -8,7 +8,7 @@ from whimbox.task.common_task.start_game_task import StartGameTask
 from whimbox.task.common_task.close_game_task import CloseGameTask
 from whimbox.task.macro_task.run_macro_task import RunMacroTask
 from whimbox.task.navigation_task.auto_path_task import AutoPathTask
-from whimbox.map.detection.cvars import MAP_NAME_MIRALAND, MAP_NAME_UNSUPPORTED
+from whimbox.map.detection.cvars import MAP_NAME_HOME, MAP_NAME_MIRALAND, MAP_NAME_UNSUPPORTED
 from whimbox.map.convert import convert_GameLoc_to_PngMapPx
 from whimbox.common.handle_lib import HANDLE_OBJ
 from whimbox.common.scripts_manager import scripts_manager
@@ -202,7 +202,7 @@ class AllInOneTask(TaskTemplate):
         from whimbox.map.map import nikki_map
 
         nikki_map.reinit_smallmap()
-        if nikki_map.map_name == MAP_NAME_UNSUPPORTED:
+        if nikki_map.map_name in [MAP_NAME_UNSUPPORTED, MAP_NAME_HOME]:
             self.log_to_gui("传送到大世界")
             loc = convert_GameLoc_to_PngMapPx([-13172.34765625, -54273.6171875], MAP_NAME_MIRALAND)
             nikki_map.bigmap_tp(loc, MAP_NAME_MIRALAND)
