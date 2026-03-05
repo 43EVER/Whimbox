@@ -20,7 +20,7 @@ class MagnetTask(TaskTemplate):
         itt.delay(0.5, comment="等待化万相小技能开启")
         _, new_px_count = ability_manager.check_subability_active()
         logger.info(f"化万相小技能开启前px_count: {px_count}, 开启后px_count: {new_px_count}")
-        if new_px_count - px_count > 100:
+        if new_px_count - px_count > 30:
             self.update_task_result(status=STATE_TYPE_SUCCESS, message="化万相小技能开启成功")
             return
         else:
