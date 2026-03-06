@@ -159,7 +159,7 @@ class AbilityManager:
             else:
                 wait_until_appear_then_click(ButtonAbilityChangeList)
         # 向下滚动，寻找指定的ability_name
-        res = scroll_find_click(AreaAbilityChange, ability_name, scroll_distance=5)
+        res = scroll_find_click(AreaAbilityChange, ability_name)
         if res:
             itt.appear_then_click(ButtonAbilitySave)
             if ability_key == 'jump':
@@ -250,11 +250,11 @@ ability_manager = AbilityManager()
 
 if __name__ == "__main__":
     # CV_DEBUG_MODE = True
-    ability_manager.change_ability(ABILITY_NAME_SHAPESHIFTING)
+    # ability_manager.change_ability(ABILITY_NAME_SHAPESHIFTING)
     # print(ability_manager.get_current_ability())
     # ability_manager._check_jump_ability()
     # ability_manager._check_ability_keymap()
     # print(ability_manager.ability_keymap)
-    # while True:
-    #     ability_manager.is_subability_active()
-    #     time.sleep(1)
+    while True:
+        print(ability_manager.check_subability_active())
+        time.sleep(1)
