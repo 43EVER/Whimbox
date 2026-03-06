@@ -1,6 +1,9 @@
 from whimbox.ui.page import UIPage, TitlePage
 from whimbox.ui.ui_assets import *
 from whimbox.common.keybind import keybind
+import time
+
+start_time = time.time()
 
 page_loading = UIPage(check_icon=IconUILoading)
 
@@ -106,3 +109,5 @@ page_shop.link('esc', page_main)
 page_gacha.link('esc', page_main)
 
 page_play_music.link('esc', page_main)
+
+logger.info(f"page_assets cost {round(time.time() - start_time, 2)}")

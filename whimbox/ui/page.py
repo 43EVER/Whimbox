@@ -1,6 +1,6 @@
-import traceback
 from typing import List, Union
 
+from whimbox.common.utils.asset_utils import get_name_from_caller
 from whimbox.ui.template.img_manager import ImgIcon
 from whimbox.ui.template.text_manager import Text
 from whimbox.ui.ui_assets import AreaPageTitleFeature
@@ -10,8 +10,7 @@ class UIPage():
 
     def __init__(self, check_icon: Union[ImgIcon, Text, List]):
         self.links = {}
-        (filename, line_number, function_name, text) = traceback.extract_stack()[-2]
-        self.name = text[:text.find('=')].strip()
+        self.name = get_name_from_caller(depth=2)
         self.check_icon_list = []
         if isinstance(check_icon, List):
             self.check_icon_list = check_icon
@@ -52,8 +51,7 @@ class UIPage():
 
 class TitlePage(UIPage):
     def __init__(self, title: str):
-        (filename, line_number, function_name, text) = traceback.extract_stack()[-2]
-        self.name = text[:text.find('=')].strip()
+        self.name = get_name_from_caller(depth=2)
         self.title = title
         self.links = {}
 

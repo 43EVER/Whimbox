@@ -407,6 +407,9 @@
   "IconAbilitySmall": {
     "rel_path": "imgs\\Windows\\UI\\wardrobe\\IconAbilitySmall.png"
   },
+  "IconAbilityStarCollect": {
+    "rel_path": "imgs\\Windows\\UI\\wardrobe\\IconAbilityStarCollect.png"
+  },
   "IconAbilityStick": {
     "rel_path": "imgs\\Windows\\UI\\wardrobe\\IconAbilityStick.png"
   },
@@ -1024,5 +1027,17 @@
   },
   "w14000000_v2_mask_0125x": {
     "rel_path": "imgs\\Maps\\w14000000_v2_mask_0125x.png"
+  },
+  "w8000001_v1": {
+    "rel_path": "imgs\\Maps\\w8000001_v1.png"
+  },
+  "w8000001_v1_luma_0125x": {
+    "rel_path": "imgs\\Maps\\w8000001_v1_luma_0125x.png"
+  },
+  "w8000001_v1_luma_05x": {
+    "rel_path": "imgs\\Maps\\w8000001_v1_luma_05x.png"
+  },
+  "w8000001_v1_mask_0125x": {
+    "rel_path": "imgs\\Maps\\w8000001_v1_mask_0125x.png"
   }
 }

@@ -4,7 +4,10 @@ from whimbox.ui.template.posi_manager import Area
 from whimbox.ui.template.text_manager import Text
 from whimbox.common.cvars import *
 from whimbox.ui.template.img_manager import GameImg
+from whimbox.common.logger import logger
+import time
 
+start_time = time.time()
 # 很多界面左上角都有的文字标题区域
 AreaPageTitleFeature = Area(anchor=ANCHOR_TOP_LEFT)
 
@@ -244,3 +247,5 @@ ButtonItemPlaceableItem = Button(print_log=LOG_WHEN_TRUE, anchor=ANCHOR_RIGHT_CE
 AreaItemFirstItem = Area(anchor=ANCHOR_TOP_RIGHT)
 IconItemCantPlace = ImgIcon(print_log=LOG_WHEN_TRUE, threshold=0.99, hsv_limit=([0,0,210], [179,130,255]), anchor=ANCHOR_TOP_CENTER)
 ButtonItemLanternConfirm = Button(print_log=LOG_WHEN_TRUE, anchor=ANCHOR_CENTER)
+
+logger.info(f"ui_assets cost {round(time.time() - start_time, 2)}")

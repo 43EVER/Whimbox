@@ -1,6 +1,5 @@
 import cv2
 import numpy as np
-import traceback
 from copy import deepcopy
 
 from whimbox.common.utils.asset_utils import *
@@ -34,7 +33,7 @@ class ImgIcon(AssetBase):
             anchor (str, optional): 相对位置锚点. Defaults to ANCHOR_TOP_LEFT.
         """
         if name is None:
-            super().__init__(get_name(traceback.extract_stack()[-2]))
+            super().__init__(get_name_from_caller(depth=2))
         else:
             super().__init__(name)
         
@@ -45,51 +44,105 @@ class ImgIcon(AssetBase):
             threshold = 0.98
 
         self.origin_path = path
-        self.raw_image = cv2.imread(self.origin_path)
-        if is_bbg == None:
-            if self.raw_image.shape == (1080,1920,3):
-                is_bbg = True
-            else:
-                is_bbg = False        
-        self.is_bbg = is_bbg
-        if self.is_bbg and bbg_posi is None:
-            self.bbg_posi = asset_get_bbox(self.raw_image, anchor=anchor)
-        else:
-            self.bbg_posi = bbg_posi
-        if cap_posi == 'bbg':
-            self.cap_posi = self.bbg_posi
-        elif cap_posi == None and is_bbg == True:
-            self.cap_posi = self.bbg_posi
-        elif cap_posi == 'all':
-            self.cap_posi = AnchorPosi(0, 0, 1920, 1080)
-        else:
-            self.cap_posi = cap_posi    
-        
-        if self.cap_posi == None:
-            self.cap_posi = AnchorPosi(0, 0, 1080, 1920)
-        
+        self._init_is_bbg = is_bbg
+        self._init_bbg_posi = bbg_posi
+        self._init_cap_posi = cap_posi
+        self._init_anchor = anchor
+
         self.threshold = threshold
         self.hsv_limit = hsv_limit
         self.gray_limit = gray_limit
         self.print_log = print_log
-            
-        self.cap_center_position_xy = self.cap_posi.get_center()
-        
-        
-        if self.is_bbg:
-            self.image = crop(self.raw_image, self.bbg_posi)
+
+        self._raw_image = None
+        self._image = None
+        self._bbg_posi = None
+        self._cap_posi = None
+        self._cap_center_position_xy = None
+        self._is_bbg_resolved = None
+        self._loaded = False
+
+    def _ensure_loaded(self):
+        if self._loaded:
+            return
+
+        raw_image = cv2.imread(self.origin_path)
+        if raw_image is None:
+            raise FileNotFoundError(f"image not found or unreadable: {self.origin_path}")
+
+        is_bbg = self._init_is_bbg
+        if is_bbg is None:
+            is_bbg = raw_image.shape == (1080, 1920, 3)
+
+        if is_bbg and self._init_bbg_posi is None:
+            bbg_posi = asset_get_bbox(raw_image, anchor=self._init_anchor)
         else:
-            self.image = self.raw_image.copy()
-        
+            bbg_posi = self._init_bbg_posi
+
+        if self._init_cap_posi == 'bbg':
+            cap_posi = bbg_posi
+        elif self._init_cap_posi is None and is_bbg:
+            cap_posi = bbg_posi
+        elif self._init_cap_posi == 'all':
+            cap_posi = AnchorPosi(0, 0, 1920, 1080)
+        else:
+            cap_posi = self._init_cap_posi
+
+        if cap_posi is None:
+            cap_posi = AnchorPosi(0, 0, 1080, 1920)
+
+        if is_bbg:
+            image = crop(raw_image, bbg_posi)
+        else:
+            image = raw_image.copy()
+
         if self.hsv_limit is not None:
-            temp_image = process_with_hsv_limit(self.image, self.hsv_limit[0], self.hsv_limit[1])
+            temp_image = process_with_hsv_limit(image, self.hsv_limit[0], self.hsv_limit[1])
             box = asset_get_bbox(temp_image)
-            self.image = crop(temp_image, box, copy=False)
+            image = crop(temp_image, box, copy=False)
         elif self.gray_limit is not None:
-            self.image = cv2.cvtColor(self.image, cv2.COLOR_BGRA2GRAY)
-            _, temp_image = cv2.threshold(self.image, self.gray_limit[0], self.gray_limit[1], cv2.THRESH_BINARY)
+            image = cv2.cvtColor(image, cv2.COLOR_BGRA2GRAY)
+            _, temp_image = cv2.threshold(image, self.gray_limit[0], self.gray_limit[1], cv2.THRESH_BINARY)
             box = asset_get_bbox(temp_image)
-            self.image = crop(temp_image, box, copy=False)
+            image = crop(temp_image, box, copy=False)
+
+        self._raw_image = raw_image
+        self._image = image
+        self._bbg_posi = bbg_posi
+        self._cap_posi = cap_posi
+        self._cap_center_position_xy = cap_posi.get_center()
+        self._is_bbg_resolved = is_bbg
+        self._loaded = True
+
+    @property
+    def raw_image(self):
+        self._ensure_loaded()
+        return self._raw_image
+
+    @property
+    def image(self):
+        self._ensure_loaded()
+        return self._image
+
+    @property
+    def bbg_posi(self):
+        self._ensure_loaded()
+        return self._bbg_posi
+
+    @property
+    def cap_posi(self):
+        self._ensure_loaded()
+        return self._cap_posi
+
+    @property
+    def cap_center_position_xy(self):
+        self._ensure_loaded()
+        return self._cap_center_position_xy
+
+    @property
+    def is_bbg(self):
+        self._ensure_loaded()
+        return self._is_bbg_resolved
             
     def copy(self):
         return deepcopy(self)
@@ -102,7 +155,7 @@ class ImgIcon(AssetBase):
 class GameImg(AssetBase):
     def __init__(self, path=None, name=None):
         if name is None:
-            super().__init__(get_name(traceback.extract_stack()[-2]))
+            super().__init__(get_name_from_caller(depth=2))
         else:
             super().__init__(name)
         
@@ -110,7 +163,22 @@ class GameImg(AssetBase):
             path = self.get_img_path()
     
         self.origin_path = path
-        self.raw_image = cv2.imread(self.origin_path, cv2.IMREAD_UNCHANGED)
+        self._raw_image = None
+        self._loaded = False
+
+    def _ensure_loaded(self):
+        if self._loaded:
+            return
+        raw_image = cv2.imread(self.origin_path, cv2.IMREAD_UNCHANGED)
+        if raw_image is None:
+            raise FileNotFoundError(f"image not found or unreadable: {self.origin_path}")
+        self._raw_image = raw_image
+        self._loaded = True
+
+    @property
+    def raw_image(self):
+        self._ensure_loaded()
+        return self._raw_image
     
     def copy(self):
         return deepcopy(self)

@@ -2,7 +2,6 @@ from scipy import signal
 from whimbox.common.utils.img_utils import *
 from whimbox.common.utils.asset_utils import *
 from whimbox.map.detection.cvars import *
-import traceback
 
 def trans_region_name_to_map_name(region_name):
     home_name = global_config.get("OneDragon", "home_name")
@@ -17,7 +16,7 @@ def trans_region_name_to_map_name(region_name):
 class MapAsset(AssetBase):
     def __init__(self, name=None):
         if name is None:
-            super().__init__(get_name(traceback.extract_stack()[-2]))
+            super().__init__(get_name_from_caller(depth=2))
         else:
             super().__init__(name)
         self.path = self.get_img_path()

@@ -1,4 +1,6 @@
 import os
+import inspect
+import linecache
 import numpy as np
 
 from whimbox.common.errors import *
@@ -13,6 +15,20 @@ def get_name(x):
     (filename, line_number, function_name, text) = x
     # = traceback.extract_stack()[-2]
     return text[:text.find('=')].strip()
+
+
+def get_name_from_caller(depth=2):
+    frame = inspect.currentframe()
+    for _ in range(depth):
+        if frame is None:
+            break
+        frame = frame.f_back
+    if frame is None:
+        return "unknown_asset"
+    line = linecache.getline(frame.f_code.co_filename, frame.f_lineno).strip()
+    if "=" in line:
+        return line.split("=", 1)[0].strip()
+    return f"{os.path.basename(frame.f_code.co_filename)}:{frame.f_lineno}"
 
 class AnchorPosi():
     def __init__(self, x1, y1, x2, y2, anchor=ANCHOR_TOP_LEFT, expand=False):

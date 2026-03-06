@@ -203,8 +203,8 @@ class AllInOneTask(TaskTemplate):
         if global_config.get("OneDragon", "home_name") == "":
             self.log_to_gui("请先前往一条龙配置中，设置家园名称", is_error=True)
         else:
-            task = AutoPathTask(session_id=self.session_id, path_name="家园日常"),
-            task_result = task.task_run()
+            home_task = AutoPathTask(session_id=self.session_id, path_name="家园日常")
+            task_result = home_task.task_run()
             self._set_default_step_result("step_home_task", task_result)
 
     @register_step("检查是否在家园")

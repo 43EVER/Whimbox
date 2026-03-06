@@ -1,5 +1,4 @@
 import numpy as np
-import traceback
 
 from whimbox.ui.template.img_manager import ImgIcon
 from whimbox.common.utils.asset_utils import *
@@ -19,15 +18,14 @@ class Button(ImgIcon):
             gray_limit=None,
             anchor=ANCHOR_TOP_LEFT):
         if name is None:
-            name = get_name(traceback.extract_stack()[-2])
+            name = get_name_from_caller(depth=2)
         super().__init__(path=path, name=name, is_bbg=is_bbg, threshold=threshold, 
             print_log=print_log, cap_posi=cap_posi, hsv_limit=hsv_limit, gray_limit=gray_limit, anchor=anchor)
         if click_offset is None:
             self.click_offset=np.array([0,0])
         else:
             self.click_offset=np.array(click_offset)
-        if self.is_bbg:
-            self.center_point = self.bbg_posi.get_center()
+        self.center_point = None
     
     
     # def click_position(self):

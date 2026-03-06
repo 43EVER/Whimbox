@@ -1,4 +1,3 @@
-from rapidocr import RapidOCR
 import os
 import threading
 import time
@@ -30,6 +29,7 @@ class RapidOcr():
         logger.info(f"Creating RapidOCR object")
         pt = time.time()
         config_path = os.path.join(ASSETS_PATH, 'rapidocr.yaml')
+        from rapidocr import RapidOCR
         self.ocr = RapidOCR(config_path=config_path)
         logger.info(f"created RapidOCR. cost {round(time.time() - pt, 2)}")
         self._lock = threading.Lock()

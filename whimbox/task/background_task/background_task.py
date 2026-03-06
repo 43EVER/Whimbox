@@ -17,6 +17,7 @@ import cv2
 from pynput import mouse
 from whimbox.ability.ability import ability_manager
 from whimbox.ability.cvar import ABILITY_NAME_FLOURISH
+from whimbox.config.config import global_config
 
 
 class BackgroundFeature(Enum):
@@ -117,8 +118,6 @@ class BackgroundTaskManager:
     def _load_from_config(self):
         """从配置文件加载状态"""
         try:
-            from whimbox.config.config import global_config
-            
             # 加载各个功能的启用状态
             auto_fishing = global_config.get_bool("BackgroundTask", "auto_fishing", False)
             auto_dialogue = global_config.get_bool("BackgroundTask", "auto_dialogue", False)
@@ -140,8 +139,6 @@ class BackgroundTaskManager:
     def _save_to_config(self, feature: BackgroundFeature, enabled: bool):
         """保存单个功能状态到配置文件"""
         try:
-            from whimbox.config.config import global_config
-            
             # 将枚举值转换为配置键名
             config_key = feature.value  # auto_fishing, auto_dialogue, auto_pickup
             

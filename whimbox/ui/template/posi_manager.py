@@ -1,5 +1,4 @@
 import cv2
-import traceback
 from whimbox.common.utils.asset_utils import *
 from whimbox.common.cvars import *
 
@@ -14,26 +13,41 @@ class PosiTemplate(AssetBase):
             expand (bool, optional): 可选。是否在垂直方向上扩展. Defaults to False.
         """
         if name is None:
-            super().__init__(get_name(traceback.extract_stack()[-2]))
+            super().__init__(get_name_from_caller(depth=2))
         else:
             super().__init__(name)
         self.anchor = anchor
-        self.position = None
+        self._position = None
         self.expand = expand
+        self._img_path = img_path
         
-        if posi is None and img_path is None:
-            img_path = self.get_img_path()
+        if posi is None and self._img_path is None:
+            self._img_path = self.get_img_path()
 
         if posi != None:
-            self.position = posi
-        else:
-            image = cv2.imread(img_path)
-            self.position = asset_get_bbox(image, anchor=self.anchor, expand=self.expand)
+            self._position = posi
+
+    def _ensure_loaded(self):
+        if self._position is not None:
+            return
+        image = cv2.imread(self._img_path)
+        if image is None:
+            raise FileNotFoundError(f"image not found or unreadable: {self._img_path}")
+        self._position = asset_get_bbox(image, anchor=self.anchor, expand=self.expand)
+
+    @property
+    def position(self):
+        self._ensure_loaded()
+        return self._position
+
+    @position.setter
+    def position(self, value):
+        self._position = value
 
 
 class Area(PosiTemplate):
     def __init__(self, name=None, anchor=ANCHOR_TOP_LEFT, expand=False):
-        name = get_name(traceback.extract_stack()[-2])
+        name = get_name_from_caller(depth=2)
         super().__init__(name, anchor=anchor, expand=expand)
     
     def center_position(self):

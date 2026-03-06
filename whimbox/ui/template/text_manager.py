@@ -1,5 +1,3 @@
-import traceback
-
 from whimbox.common.utils.asset_utils import *
 from whimbox.common.cvars import *
 from whimbox.ui.template.posi_manager import Area
@@ -8,7 +6,7 @@ from whimbox.ui.template.posi_manager import Area
 class TextTemplate(AssetBase):
     def __init__(self, text:str, cap_area:Area, name=None, match_mode=CONTAIN_MATCHING, print_log=LOG_WHEN_TRUE):
         if name is None:
-            super().__init__(get_name(traceback.extract_stack()[-2]))
+            super().__init__(get_name_from_caller(depth=2))
         else:
             super().__init__(name)
             
@@ -41,7 +39,7 @@ class TextTemplate(AssetBase):
 class Text(TextTemplate):
     def __init__(self, text, cap_area, name=None, print_log = LOG_WHEN_TRUE) -> None:
         if name is None:
-            name = get_name(traceback.extract_stack()[-2])
+            name = get_name_from_caller(depth=2)
         super().__init__(text, cap_area=cap_area, name=name, print_log=print_log)
 
 
