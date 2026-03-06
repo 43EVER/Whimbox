@@ -275,6 +275,7 @@ class Map(MiniMap, BigMap):
                 AreaBigMapRegionSelect.click(target_box=box)
                 time.sleep(0.5)
 
+        home_name = global_config.get("OneDragon", "home_name")
         # 判断当前区域是否是目标区域
         current_region, _ = self.update_region_and_map_name()
         if current_region != tp_region:
@@ -282,7 +283,7 @@ class Map(MiniMap, BigMap):
             AreaBigMapRegionName.click()
             time.sleep(0.5)
             text_box_dict = itt.ocr_and_detect_posi(AreaBigMapRegionSelect)
-            if tp_province not in text_box_dict or tp_province == "星海":
+            if tp_province not in text_box_dict or tp_province in ["星海", home_name]:
                 # 如果目标province不在当前页面，说明当前province不是目标，就滑动并点击展开
                 if not scroll_find_click(AreaBigMapRegionSelect, tp_province):
                     return False
@@ -294,7 +295,7 @@ class Map(MiniMap, BigMap):
                 elif tp_province == "伊赞之土":
                     expand_province_dropdown(tp_province, "巨木之森", text_box_dict)
 
-            if tp_province == "星海":
+            if tp_province in ["星海", home_name]:
                 self.update_region_and_map_name()
                 return True
             else:
