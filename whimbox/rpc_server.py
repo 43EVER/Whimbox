@@ -13,7 +13,7 @@ from whimbox.common.logger import logger
 from whimbox.common.path_lib import ASSETS_PATH
 from whimbox.config.default_config import DEFAULT_CONFIG
 from whimbox.config.config import global_config
-from whimbox.mcp_agent import mcp_agent
+from whimbox.agent import whimbox_agent
 from whimbox.plugin_runtime import get_registry, init_plugins, get_loaded_plugins, get_plugins_version
 from whimbox.session_manager import session_manager
 from whimbox.task_manager import task_manager
@@ -210,7 +210,7 @@ def _emit_task_stopping(task_info: Dict[str, Any], *, detail: str = "manual_stop
 def _request_global_stop(*, detail: str) -> bool:
     stopped_any = False
 
-    for item in mcp_agent.request_stop_all():
+    for item in whimbox_agent.request_stop_all():
         sid = str(item.get("session_id") or "default")
         tool_running = bool(item.get("tool_running"))
         if not tool_running:
@@ -738,7 +738,7 @@ async def _dispatch(method: str, params: Dict[str, Any]) -> Any:
         message = params.get("message", "")
         if not message:
             raise ValueError("message is required")
-        agent_ready, _, err_msg = mcp_agent.is_ready()
+        agent_ready, _, err_msg = whimbox_agent.is_ready()
         if not agent_ready:
             return {"message": err_msg or "Agent not ready"}
 
@@ -848,7 +848,7 @@ async def _dispatch(method: str, params: Dict[str, Any]) -> Any:
                 _agent_stopping_sessions.discard(session_id)
                 _clear_agent_tool_call_id(session_id)
 
-        response_text = await mcp_agent.query_agent(
+        response_text = await whimbox_agent.query_agent(
             message,
             thread_id=session_id,
             stream_callback=stream_callback,
@@ -858,7 +858,7 @@ async def _dispatch(method: str, params: Dict[str, Any]) -> Any:
 
     if method == "agent.stop":
         session_id = params.get("session_id", "default")
-        stop_result = mcp_agent.request_stop(session_id)
+        stop_result = whimbox_agent.request_stop(session_id)
         if not stop_result.get("ok"):
             return {"ok": False, "tool_running": bool(stop_result.get("tool_running"))}
         if stop_result.get("tool_running"):
@@ -1090,7 +1090,7 @@ async def _dispatch(method: str, params: Dict[str, Any]) -> Any:
 
     if method == "plugin.reload":
         init_plugins(force_reload=True)
-        mcp_agent.reload_tools()
+        whimbox_agent.reload_tools()
         return {
             "version": get_plugins_version(),
             "plugins": get_loaded_plugins(),

@@ -1,7 +1,8 @@
 import asyncio
 import threading
 
-from langgraph.prebuilt import create_react_agent
+from langchain.agents import create_agent
+# from langgraph.prebuilt import create_react_agent
 from langchain.chat_models import init_chat_model
 from langgraph.checkpoint.memory import MemorySaver
 from whimbox.common.logger import logger
@@ -82,11 +83,11 @@ class Agent:
             self.memory = MemorySaver()
         
         if self.llm and self.tools and self.memory:
-            self.langchain_agent = create_react_agent(
+            self.langchain_agent = create_agent(
                 model=self.llm, 
                 tools=self.tools, 
                 checkpointer=self.memory, 
-                prompt=global_config.prompt, 
+                system_prompt=global_config.prompt, 
                 debug=False)
             self.err_msg = ""
             logger.debug("MCP AGENT 初始化完成")
@@ -248,4 +249,4 @@ class Agent:
             self.err_msg = "未加载任何插件工具"
             logger.error(self.err_msg)
 
-mcp_agent = Agent()
+whimbox_agent = Agent()

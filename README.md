@@ -86,7 +86,7 @@ Whinbox/
 │   ├── ui/                       # 游戏UI模块（页面、UI）
 │   ├── view_and_move/            # 视角和移动模块
 │   ├── main.py                   # 程序入口
-│   ├── mcp_agent.py              # 大模型agent
+│   ├── agent.py              # 大模型agent
 ├── configs/                      # 配置文件（首次运行会自动生成）
 │   ├── config.json               # 项目的配置文件
 │   └── prompt.txt                # 大模型提示词
