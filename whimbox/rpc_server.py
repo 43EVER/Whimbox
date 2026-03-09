@@ -2,6 +2,7 @@ import asyncio
 import json
 import os
 import time
+from collections import deque
 from typing import Any, Dict, Optional, Set
 from uuid import uuid4
 
@@ -31,6 +32,7 @@ _last_overlay_hotkey_ts = 0.0
 _agent_stopping_sessions: Set[str] = set()
 _task_stopping_run_ids: Set[str] = set()
 _agent_active_tool_call_ids: Dict[str, str] = {}
+_agent_pending_tool_call_ids: Dict[str, deque[str]] = {}
 _one_dragon_auto_start_scheduled = False
 
 
@@ -79,7 +81,7 @@ def notify_event(method: str, params: Dict[str, Any]) -> None:
         source = params.get("source")
         session_id = str(params.get("session_id") or "default")
         if source == "task" and not params.get("tool_call_id"):
-            tool_call_id = _agent_active_tool_call_ids.get(session_id, "")
+            tool_call_id = _resolve_agent_tool_call_id(session_id, activate_pending=True)
             if tool_call_id:
                 params = {**params, "tool_call_id": tool_call_id}
     _notify(method, params)
@@ -146,16 +148,48 @@ def _notify_run_log(
 def _bind_agent_tool_call_id(session_id: str) -> str:
     sid = session_id or "default"
     tool_call_id = f"tool_{uuid4().hex}"
-    _agent_active_tool_call_ids[sid] = tool_call_id
+    queue = _agent_pending_tool_call_ids.get(sid)
+    if queue is None:
+        queue = deque()
+        _agent_pending_tool_call_ids[sid] = queue
+    queue.append(tool_call_id)
     return tool_call_id
 
 
-def _resolve_agent_tool_call_id(session_id: str) -> str:
-    return _agent_active_tool_call_ids.get(session_id or "default", "")
+def _resolve_agent_tool_call_id(session_id: str, *, activate_pending: bool = False) -> str:
+    sid = session_id or "default"
+    active = _agent_active_tool_call_ids.get(sid, "")
+    if active:
+        return active
+    if not activate_pending:
+        return ""
+    queue = _agent_pending_tool_call_ids.get(sid)
+    if queue:
+        active = queue[0]
+        _agent_active_tool_call_ids[sid] = active
+        return active
+    return ""
+
+
+def _complete_agent_tool_call_id(session_id: str) -> str:
+    sid = session_id or "default"
+    tool_call_id = _resolve_agent_tool_call_id(sid, activate_pending=True)
+    _agent_active_tool_call_ids.pop(sid, None)
+    queue = _agent_pending_tool_call_ids.get(sid)
+    if queue:
+        if tool_call_id and queue and queue[0] == tool_call_id:
+            queue.popleft()
+        elif tool_call_id and tool_call_id in queue:
+            queue.remove(tool_call_id)
+        if not queue:
+            _agent_pending_tool_call_ids.pop(sid, None)
+    return tool_call_id
 
 
 def _clear_agent_tool_call_id(session_id: str) -> None:
-    _agent_active_tool_call_ids.pop(session_id or "default", None)
+    sid = session_id or "default"
+    _agent_active_tool_call_ids.pop(sid, None)
+    _agent_pending_tool_call_ids.pop(sid, None)
 
 
 def _emit_agent_stopping(session_id: str, *, detail: str = "manual_stop") -> None:
@@ -831,7 +865,7 @@ async def _dispatch(method: str, params: Dict[str, Any]) -> Any:
                     tool_call_id=tool_call_id,
                 )
             elif status_type == "on_tool_stopping":
-                tool_call_id = _resolve_agent_tool_call_id(session_id)
+                tool_call_id = _resolve_agent_tool_call_id(session_id, activate_pending=True)
                 _notify_run_status(
                     session_id=session_id,
                     run_id=session_id,
@@ -841,7 +875,7 @@ async def _dispatch(method: str, params: Dict[str, Any]) -> Any:
                     tool_call_id=tool_call_id,
                 )
             elif status_type == "on_tool_end":
-                tool_call_id = _resolve_agent_tool_call_id(session_id)
+                tool_call_id = _resolve_agent_tool_call_id(session_id, activate_pending=True)
                 output = meta.get("output") if isinstance(meta, dict) else None
                 result_status = ""
                 result_message = ""
@@ -888,9 +922,9 @@ async def _dispatch(method: str, params: Dict[str, Any]) -> Any:
                     type_="finalize_ai_message",
                 )
                 _agent_stopping_sessions.discard(session_id)
-                _clear_agent_tool_call_id(session_id)
+                _complete_agent_tool_call_id(session_id)
             elif status_type in {"on_tool_error", "error"}:
-                tool_call_id = _resolve_agent_tool_call_id(session_id)
+                tool_call_id = _resolve_agent_tool_call_id(session_id, activate_pending=True)
                 error_message = ""
                 if isinstance(meta, dict):
                     error_message = str(meta.get("error") or "").strip()
@@ -913,7 +947,7 @@ async def _dispatch(method: str, params: Dict[str, Any]) -> Any:
                     type_="finalize_ai_message",
                 )
                 _agent_stopping_sessions.discard(session_id)
-                _clear_agent_tool_call_id(session_id)
+                _complete_agent_tool_call_id(session_id)
 
         response_text = await whimbox_agent.query_agent(
             message,
