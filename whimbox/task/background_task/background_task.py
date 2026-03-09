@@ -18,6 +18,7 @@ from pynput import mouse
 from whimbox.ability.ability import ability_manager
 from whimbox.ability.cvar import ABILITY_NAME_FLOURISH
 from whimbox.config.config import global_config
+from whimbox.tool_invocation_coordinator import tool_invocation_coordinator
 
 
 class BackgroundFeature(Enum):
@@ -304,6 +305,21 @@ class BackgroundTask:
             payload["error"] = error
         notify_event("event.run.status", payload)
 
+    def _try_enter_background_tool(self, *, session_id: str, tool_id: str):
+        owner = f"background:{session_id}:{tool_id}"
+        return tool_invocation_coordinator.acquire_sync(
+            resource_group="game_runtime",
+            owner=owner,
+            wait_policy="skip_if_busy",
+        )
+
+    def _leave_background_tool(self, *, session_id: str, tool_id: str) -> None:
+        owner = f"background:{session_id}:{tool_id}"
+        tool_invocation_coordinator.release(
+            resource_group="game_runtime",
+            owner=owner,
+        )
+
     def stop(self):
         """停止后台任务"""
         self.stop_event.set()
@@ -433,6 +449,10 @@ class BackgroundTask:
         session_id = self._resolve_session_id()
         token = current_session_id.set(session_id)
         tool_id = "background.auto_fishing"
+        acquire_result = self._try_enter_background_tool(session_id=session_id, tool_id=tool_id)
+        if not acquire_result.acquired:
+            logger.info("后台自动钓鱼跳过：game_runtime 正被前台占用")
+            return
         self._notify_background_status(
             session_id=session_id,
             phase="started",
@@ -486,6 +506,7 @@ class BackgroundTask:
                 error=str(e),
             )
         finally:
+            self._leave_background_tool(session_id=session_id, tool_id=tool_id)
             current_session_id.reset(token)
             self._start_mouse_listener()
 
@@ -502,6 +523,10 @@ class BackgroundTask:
         session_id = self._resolve_session_id()
         token = current_session_id.set(session_id)
         tool_id = "background.auto_dialogue"
+        acquire_result = self._try_enter_background_tool(session_id=session_id, tool_id=tool_id)
+        if not acquire_result.acquired:
+            logger.info("后台自动对话跳过：game_runtime 正被前台占用")
+            return
         self._notify_background_status(
             session_id=session_id,
             phase="started",
@@ -544,6 +569,7 @@ class BackgroundTask:
             )
             raise
         finally:
+            self._leave_background_tool(session_id=session_id, tool_id=tool_id)
             current_session_id.reset(token)
 
     def _detect_pickup_opportunity(self, cap) -> bool:

@@ -21,6 +21,9 @@ class MemoryStore:
         content = self.memory_file.read_text(encoding="utf-8").strip()
         return content
 
+    def should_consolidate(self, *, session: Any, memory_window: int) -> bool:
+        return len(session.messages) - session.last_consolidated >= memory_window
+
     async def consolidate(
         self,
         *,
@@ -29,7 +32,7 @@ class MemoryStore:
         memory_window: int,
     ) -> bool:
         keep_count = max(memory_window // 2, 10)
-        if len(session.messages) - session.last_consolidated < memory_window:
+        if not self.should_consolidate(session=session, memory_window=memory_window):
             return True
 
         old_messages = session.messages[session.last_consolidated:-keep_count]

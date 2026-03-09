@@ -37,6 +37,8 @@ class Agent:
         self._session_stop_events = {}
         self._tool_running_sessions = set()
         self._session_stream_tasks = {}
+        self._consolidation_locks = {}
+        self._consolidation_tasks = {}
         self.workspace = AgentWorkspace()
         self.context_builder = None
         self.memory_store = None
@@ -145,6 +147,7 @@ class Agent:
 
         full_response = ""
         tools_used = []
+        stream_cancelled = False
 
         if status_callback:
             status_callback("thinking", "", None)
@@ -204,6 +207,11 @@ class Agent:
             await stream_task
         except asyncio.CancelledError:
             logger.info(f"Agent stream cancelled: session={session_id}")
+            stream_cancelled = True
+        except Exception as exc:
+            if status_callback:
+                status_callback("error", "agent_error", {"error": str(exc)})
+            raise
         finally:
             self._session_stream_tasks.pop(session_id, None)
             self._session_stop_events.pop(session_id, None)
@@ -213,13 +221,13 @@ class Agent:
             full_response = "已停止当前对话。"
 
         self._save_session_turn(session, user_text=text, assistant_text=full_response, tools_used=tools_used)
-        if self.memory_store and self.llm:
-            await self.memory_store.consolidate(
-                session=session,
-                llm=self.llm,
-                memory_window=self._memory_window,
-            )
         self.session_manager.save(session)
+        self._schedule_consolidation_if_needed(session_id=session_id)
+
+        if status_callback and (stop_event.is_set() or stream_cancelled):
+            status_callback("cancelled", "cancelled", None)
+        elif status_callback:
+            status_callback("completed", "completed", None)
 
         logger.debug("大模型调用完成")
         return full_response
@@ -249,7 +257,11 @@ class Agent:
             session_id_getter=lambda: self._active_session_id,
             stop_event_getter=self._get_active_stop_event,
         )
-        workspace_tools = build_workspace_tools(self.workspace.root)
+        workspace_tools = build_workspace_tools(
+            self.workspace.root,
+            session_id_getter=lambda: self._active_session_id,
+            stop_event_getter=self._get_active_stop_event,
+        )
         self.tools = [*plugin_tools, *workspace_tools]
         self.mcp_ready = bool(plugin_tools)
 
@@ -257,6 +269,42 @@ class Agent:
         session.add_message("user", user_text)
         if assistant_text:
             session.add_message("assistant", assistant_text, tools_used=tools_used)
+
+    def _schedule_consolidation_if_needed(self, *, session_id: str) -> None:
+        if not self.memory_store or not self.llm or not self.session_manager:
+            return
+        session = self.session_manager.get_or_create(session_id)
+        if not self.memory_store.should_consolidate(session=session, memory_window=self._memory_window):
+            return
+        existing_task = self._consolidation_tasks.get(session_id)
+        if existing_task and not existing_task.done():
+            return
+        task = asyncio.create_task(self._run_consolidation(session_id))
+        self._consolidation_tasks[session_id] = task
+
+        def _cleanup(done_task):
+            if self._consolidation_tasks.get(session_id) is done_task:
+                self._consolidation_tasks.pop(session_id, None)
+
+        task.add_done_callback(_cleanup)
+
+    async def _run_consolidation(self, session_id: str) -> None:
+        if not self.memory_store or not self.llm or not self.session_manager:
+            return
+        lock = self._consolidation_locks.setdefault(session_id, asyncio.Lock())
+        async with lock:
+            session = self.session_manager.get_or_create(session_id)
+            if not self.memory_store.should_consolidate(session=session, memory_window=self._memory_window):
+                return
+            ok = await self.memory_store.consolidate(
+                session=session,
+                llm=self.llm,
+                memory_window=self._memory_window,
+            )
+            if ok:
+                self.session_manager.save(session)
+            else:
+                logger.warning(f"后台记忆压缩失败: session={session_id}")
 
     def _extract_chunk_text(self, chunk) -> str:
         if hasattr(chunk, "content"):

@@ -494,12 +494,35 @@ async def _run_registered_task(
         tool_id=tool_id,
     )
     try:
+        wait_status_sent = False
+
+        def _emit_waiting() -> None:
+            nonlocal wait_status_sent
+            if wait_status_sent:
+                return
+            wait_status_sent = True
+            _notify_run_status(
+                session_id=session_id,
+                run_id=task.task_id,
+                source="task",
+                phase="running",
+                tool_id=tool_id,
+                detail="waiting_for_lock",
+            )
+
         result = await asyncio.to_thread(
             registry.invoke,
             tool_id,
             session_id,
             input_data,
-            {"session_id": session_id, "stop_event": task.stop_event, "run_id": task.task_id},
+            {
+                "session_id": session_id,
+                "stop_event": task.stop_event,
+                "run_id": task.task_id,
+                "invocation_source": "task",
+                "wait_policy": "wait",
+                "on_wait": _emit_waiting,
+            },
         )
         result_status = ""
         if isinstance(result, dict):
@@ -725,7 +748,11 @@ async def _dispatch(method: str, params: Dict[str, Any]) -> Any:
             tool_id=tool_id,
             session_id=session_id,
             input_data=input_data,
-            context={"session_id": session_id},
+            context={
+                "session_id": session_id,
+                "invocation_source": "task",
+                "wait_policy": "wait",
+            },
         )
         _notify(
             "event.action.executed",
@@ -753,7 +780,47 @@ async def _dispatch(method: str, params: Dict[str, Any]) -> Any:
 
         def status_callback(status_type: str, detail: str = "", meta: Optional[Dict[str, Any]] = None) -> None:
             logger.info(f"Agent status: {status_type}, {detail}")
-            if status_type == "on_tool_start":
+            if status_type == "thinking":
+                _notify_run_status(
+                    session_id=session_id,
+                    run_id=session_id,
+                    source="agent",
+                    phase="started",
+                    detail="thinking",
+                )
+            elif status_type == "generating":
+                _notify_run_status(
+                    session_id=session_id,
+                    run_id=session_id,
+                    source="agent",
+                    phase="running",
+                    detail="generating",
+                )
+            elif status_type == "completed":
+                tool_call_id = _resolve_agent_tool_call_id(session_id)
+                _notify_run_status(
+                    session_id=session_id,
+                    run_id=session_id,
+                    source="agent",
+                    phase="completed",
+                    detail=detail or "completed",
+                    tool_call_id=tool_call_id,
+                )
+                _agent_stopping_sessions.discard(session_id)
+                _clear_agent_tool_call_id(session_id)
+            elif status_type == "cancelled":
+                tool_call_id = _resolve_agent_tool_call_id(session_id)
+                _notify_run_status(
+                    session_id=session_id,
+                    run_id=session_id,
+                    source="agent",
+                    phase="cancelled",
+                    detail=detail or "cancelled",
+                    tool_call_id=tool_call_id,
+                )
+                _agent_stopping_sessions.discard(session_id)
+                _clear_agent_tool_call_id(session_id)
+            elif status_type == "on_tool_start":
                 tool_call_id = _bind_agent_tool_call_id(session_id)
                 _notify_run_status(
                     session_id=session_id,

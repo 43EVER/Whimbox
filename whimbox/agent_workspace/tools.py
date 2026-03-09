@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import difflib
+from threading import Event
 from pathlib import Path
 
 from langchain_core.tools import StructuredTool
 from pydantic import BaseModel, Field
+
+from whimbox.tool_invocation_coordinator import tool_invocation_coordinator
 
 
 def _resolve_path(workspace_root: Path, path: str) -> Path:
@@ -37,47 +40,84 @@ class ListDirArgs(BaseModel):
     path: str = Field(..., description="Workspace-relative directory path to inspect")
 
 
-def build_workspace_tools(workspace_root: Path) -> list[StructuredTool]:
+def build_workspace_tools(
+    workspace_root: Path,
+    *,
+    session_id_getter=None,
+    stop_event_getter=None,
+) -> list[StructuredTool]:
+    def _invoke_serialized(func, *args, **kwargs):
+        session_id = session_id_getter() if callable(session_id_getter) else "default"
+        if not session_id:
+            session_id = "default"
+        stop_event = stop_event_getter() if callable(stop_event_getter) else None
+        if not isinstance(stop_event, Event):
+            stop_event = None
+        owner = f"agent:{session_id}:workspace_fs"
+        with tool_invocation_coordinator.hold_sync(
+            resource_group="workspace_fs",
+            owner=owner,
+            wait_policy="wait",
+            stop_event=stop_event,
+        ) as acquire_result:
+            if not acquire_result.acquired:
+                if acquire_result.reason == "stopped":
+                    return "Task stopped before file operation started."
+                return "Workspace is busy. Try again after the current file operation finishes."
+            return func(*args, **kwargs)
+
     def _read_file(path: str) -> str:
-        target = _resolve_path(workspace_root, path)
-        if not target.exists():
-            raise FileNotFoundError(path)
-        if not target.is_file():
-            raise ValueError("path must be a file")
-        return target.read_text(encoding="utf-8")
+        def _do_read() -> str:
+            target = _resolve_path(workspace_root, path)
+            if not target.exists():
+                raise FileNotFoundError(path)
+            if not target.is_file():
+                raise ValueError("path must be a file")
+            return target.read_text(encoding="utf-8")
+
+        return _invoke_serialized(_do_read)
 
     def _write_file(path: str, content: str) -> str:
-        target = _resolve_path(workspace_root, path)
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(content, encoding="utf-8")
-        return f"Successfully wrote {len(content)} chars to {target}"
+        def _do_write() -> str:
+            target = _resolve_path(workspace_root, path)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(content, encoding="utf-8")
+            return f"Successfully wrote {len(content)} chars to {target}"
+
+        return _invoke_serialized(_do_write)
 
     def _edit_file(path: str, old_text: str, new_text: str) -> str:
-        target = _resolve_path(workspace_root, path)
-        if not target.exists():
-            raise FileNotFoundError(path)
-        if not target.is_file():
-            raise ValueError("path must be a file")
+        def _do_edit() -> str:
+            target = _resolve_path(workspace_root, path)
+            if not target.exists():
+                raise FileNotFoundError(path)
+            if not target.is_file():
+                raise ValueError("path must be a file")
 
-        content = target.read_text(encoding="utf-8")
-        if old_text not in content:
-            return _not_found_message(path, old_text, content)
+            content = target.read_text(encoding="utf-8")
+            if old_text not in content:
+                return _not_found_message(path, old_text, content)
 
-        count = content.count(old_text)
-        if count > 1:
-            return f"Warning: old_text appears {count} times in {path}. Provide a more specific snippet."
+            count = content.count(old_text)
+            if count > 1:
+                return f"Warning: old_text appears {count} times in {path}. Provide a more specific snippet."
 
-        target.write_text(content.replace(old_text, new_text, 1), encoding="utf-8")
-        return f"Successfully edited {target}"
+            target.write_text(content.replace(old_text, new_text, 1), encoding="utf-8")
+            return f"Successfully edited {target}"
+
+        return _invoke_serialized(_do_edit)
 
     def _list_dir(path: str) -> str:
-        target = _resolve_path(workspace_root, path)
-        if not target.exists():
-            raise FileNotFoundError(path)
-        if not target.is_dir():
-            raise ValueError("path must be a directory")
-        items = [f"{'[dir]' if item.is_dir() else '[file]'} {item.name}" for item in sorted(target.iterdir())]
-        return "\n".join(items) if items else f"Directory {path} is empty"
+        def _do_list() -> str:
+            target = _resolve_path(workspace_root, path)
+            if not target.exists():
+                raise FileNotFoundError(path)
+            if not target.is_dir():
+                raise ValueError("path must be a directory")
+            items = [f"{'[dir]' if item.is_dir() else '[file]'} {item.name}" for item in sorted(target.iterdir())]
+            return "\n".join(items) if items else f"Directory {path} is empty"
+
+        return _invoke_serialized(_do_list)
 
     return [
         StructuredTool.from_function(
