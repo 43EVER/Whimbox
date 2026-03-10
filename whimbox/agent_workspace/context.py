@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from whimbox.agent_workspace.memory import MemoryStore
+from whimbox.agent_workspace.session import add_runtime_context, content_to_text
 from whimbox.agent_workspace.skills import SkillsLoader
 
 
@@ -42,15 +43,25 @@ class ContextBuilder:
         self,
         *,
         history: list[dict[str, Any]],
-        current_message: str,
+        current_message: Any,
         session_id: str,
     ) -> list[dict[str, Any]]:
-        runtime = self._runtime_context(session_id)
-        return [
-            {"role": "system", "content": self.build_system_prompt()},
-            *history,
-            {"role": "user", "content": f"{runtime}\n\n{current_message}"},
-        ]
+        runtime = self._runtime_context(session_id, current_message)
+        messages: list[dict[str, Any]] = [{"role": "system", "content": self.build_system_prompt()}]
+        for item in history:
+            messages.append(
+                {
+                    "role": item.get("role", "user"),
+                    "content": content_to_text(item.get("content", "")),
+                }
+            )
+        messages.append(
+            {
+                "role": "user",
+                "content": content_to_text(add_runtime_context(current_message, runtime)),
+            }
+        )
+        return messages
 
     def _identity(self) -> str:
         workspace = str(self.workspace_root.resolve())
@@ -78,6 +89,25 @@ class ContextBuilder:
                 parts.append(f"## {filename}\n\n{path.read_text(encoding='utf-8').strip()}")
         return "\n\n".join(part for part in parts if part.strip())
 
-    def _runtime_context(self, session_id: str) -> str:
+    def _runtime_context(self, session_id: str, current_message: Any = None) -> str:
         now = datetime.now().strftime("%Y-%m-%d %H:%M")
-        return f"{self.RUNTIME_TAG}\n当前时间：{now}\n会话 ID：{session_id or 'default'}"
+        lines = [self.RUNTIME_TAG, f"当前时间：{now}", f"会话 ID：{session_id or 'default'}"]
+        uploaded_paths = self._current_upload_paths(current_message)
+        if uploaded_paths:
+            lines.append("当前消息上传图片路径：")
+            lines.extend(f"- {path}" for path in uploaded_paths)
+        return "\n".join(lines)
+
+    def _current_upload_paths(self, current_message: Any) -> list[str]:
+        if not isinstance(current_message, list):
+            return []
+        paths: list[str] = []
+        for item in current_message:
+            if not isinstance(item, dict):
+                continue
+            if str(item.get("type") or "") != "image_file":
+                continue
+            path = str(item.get("path") or "").strip()
+            if path:
+                paths.append(path)
+        return paths

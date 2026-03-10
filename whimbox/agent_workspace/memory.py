@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from whimbox.common.logger import logger
+from whimbox.agent_workspace.session import content_to_text
 
 
 class MemoryStore:
@@ -41,9 +42,9 @@ class MemoryStore:
 
         current_memory = self.get_memory_context()
         transcript = "\n".join(
-            f"[{item.get('timestamp', '?')[:16]}] {item.get('role', '').upper()}: {item.get('content', '')}"
+            f"[{item.get('timestamp', '?')[:16]}] {item.get('role', '').upper()}: {content_to_text(item.get('content', ''))}"
             for item in old_messages
-            if item.get("content")
+            if content_to_text(item.get("content", "")).strip()
         )
 
         prompt = (

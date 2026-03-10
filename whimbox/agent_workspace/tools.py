@@ -1,12 +1,18 @@
 from __future__ import annotations
 
 import difflib
+import json
+import tempfile
+import uuid
 from threading import Event
 from pathlib import Path
 
+import cv2
 from langchain_core.tools import StructuredTool
 from pydantic import BaseModel, Field
+from typing_extensions import Literal
 
+from whimbox.interaction.interaction_core import itt
 from whimbox.tool_invocation_coordinator import tool_invocation_coordinator
 
 
@@ -40,30 +46,37 @@ class ListDirArgs(BaseModel):
     path: str = Field(..., description="Workspace-relative directory path to inspect")
 
 
+class AnalyzeImageArgs(BaseModel):
+    mode: Literal["path", "screenshot"] = Field(..., description="Use 'path' to analyze a local image, or 'screenshot' to capture the current game screen first.")
+    prompt: str = Field(..., description="The analysis request to apply to the image, including any scoring rubric.")
+    path: str | None = Field(None, description="Absolute local image path when mode is 'path'.")
+
+
 def build_workspace_tools(
     workspace_root: Path,
     *,
     session_id_getter=None,
     stop_event_getter=None,
+    image_analyzer=None,
 ) -> list[StructuredTool]:
-    def _invoke_serialized(func, *args, **kwargs):
+    def _invoke_serialized(func, *args, resource_group: str = "workspace_fs", owner_suffix: str = "workspace_fs", **kwargs):
         session_id = session_id_getter() if callable(session_id_getter) else "default"
         if not session_id:
             session_id = "default"
         stop_event = stop_event_getter() if callable(stop_event_getter) else None
         if not isinstance(stop_event, Event):
             stop_event = None
-        owner = f"agent:{session_id}:workspace_fs"
+        owner = f"agent:{session_id}:{owner_suffix}"
         with tool_invocation_coordinator.hold_sync(
-            resource_group="workspace_fs",
+            resource_group=resource_group,
             owner=owner,
             wait_policy="wait",
             stop_event=stop_event,
         ) as acquire_result:
             if not acquire_result.acquired:
                 if acquire_result.reason == "stopped":
-                    return "Task stopped before file operation started."
-                return "Workspace is busy. Try again after the current file operation finishes."
+                    return "Task stopped before operation started."
+                return "Resource is busy. Try again after the current operation finishes."
             return func(*args, **kwargs)
 
     def _read_file(path: str) -> str:
@@ -75,7 +88,7 @@ def build_workspace_tools(
                 raise ValueError("path must be a file")
             return target.read_text(encoding="utf-8")
 
-        return _invoke_serialized(_do_read)
+        return _invoke_serialized(_do_read, resource_group="workspace_fs", owner_suffix="workspace_fs")
 
     def _write_file(path: str, content: str) -> str:
         def _do_write() -> str:
@@ -84,7 +97,7 @@ def build_workspace_tools(
             target.write_text(content, encoding="utf-8")
             return f"Successfully wrote {len(content)} chars to {target}"
 
-        return _invoke_serialized(_do_write)
+        return _invoke_serialized(_do_write, resource_group="workspace_fs", owner_suffix="workspace_fs")
 
     def _edit_file(path: str, old_text: str, new_text: str) -> str:
         def _do_edit() -> str:
@@ -105,7 +118,7 @@ def build_workspace_tools(
             target.write_text(content.replace(old_text, new_text, 1), encoding="utf-8")
             return f"Successfully edited {target}"
 
-        return _invoke_serialized(_do_edit)
+        return _invoke_serialized(_do_edit, resource_group="workspace_fs", owner_suffix="workspace_fs")
 
     def _list_dir(path: str) -> str:
         def _do_list() -> str:
@@ -117,7 +130,52 @@ def build_workspace_tools(
             items = [f"{'[dir]' if item.is_dir() else '[file]'} {item.name}" for item in sorted(target.iterdir())]
             return "\n".join(items) if items else f"Directory {path} is empty"
 
-        return _invoke_serialized(_do_list)
+        return _invoke_serialized(_do_list, resource_group="workspace_fs", owner_suffix="workspace_fs")
+
+    def _analyze_image(mode: str, prompt: str, path: str | None = None) -> str:
+        if image_analyzer is None:
+            return json.dumps(
+                {
+                    "status": "error",
+                    "message": "Image analysis is unavailable.",
+                    "analysis": "",
+                },
+                ensure_ascii=False,
+            )
+
+        session_id = session_id_getter() if callable(session_id_getter) else "default"
+        resource_group = "game_runtime" if mode == "screenshot" else "default"
+        owner_suffix = "image_screenshot" if mode == "screenshot" else "image_analysis"
+
+        def _do_analyze() -> str:
+            resolved_path = path
+            if mode == "screenshot":
+                screenshot_dir = Path(tempfile.gettempdir()) / "whimbox_agent_images"
+                screenshot_dir.mkdir(parents=True, exist_ok=True)
+                screenshot_path = screenshot_dir / f"{session_id or 'default'}_{uuid.uuid4().hex}.png"
+                image = itt.capture()
+                cv2.imwrite(str(screenshot_path), image)
+                resolved_path = str(screenshot_path)
+            if mode == "path":
+                if not resolved_path:
+                    raise ValueError("path is required when mode is 'path'")
+                target = Path(resolved_path).expanduser()
+                if not target.exists() or not target.is_file():
+                    raise FileNotFoundError(resolved_path)
+                resolved_path = str(target.resolve())
+            result = image_analyzer(
+                image_path=str(resolved_path or ""),
+                prompt=prompt,
+                session_id=session_id or "default",
+                source_mode=mode,
+            )
+            return json.dumps(result, ensure_ascii=False)
+
+        return _invoke_serialized(
+            _do_analyze,
+            resource_group=resource_group,
+            owner_suffix=owner_suffix,
+        )
 
     return [
         StructuredTool.from_function(
@@ -143,6 +201,12 @@ def build_workspace_tools(
             name="list_dir",
             description="List files and directories within the agent workspace.",
             args_schema=ListDirArgs,
+        ),
+        StructuredTool.from_function(
+            func=_analyze_image,
+            name="analyze_image",
+            description="Analyze an uploaded local image or capture the current game screen, then return a text-only analysis based on the provided prompt.",
+            args_schema=AnalyzeImageArgs,
         ),
     ]
 

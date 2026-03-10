@@ -19,6 +19,7 @@ from whimbox.rpc_method_groups import (
     handle_config_method,
     handle_script_method,
 )
+from whimbox.agent_workspace.session import compose_user_content, has_content
 from whimbox.session_manager import session_manager
 from whimbox.task_manager import task_manager
 
@@ -579,7 +580,9 @@ async def _dispatch(method: str, params: Dict[str, Any]) -> Any:
     if method == "agent.send_message":
         session_id = params.get("session_id", "default")
         message = params.get("message", "")
-        if not message:
+        attachments = params.get("attachments", []) or []
+        user_content = compose_user_content(message, attachments if isinstance(attachments, list) else [])
+        if not has_content(user_content):
             raise ValueError("message is required")
         agent_ready, _, err_msg = whimbox_agent.is_ready()
         if not agent_ready:
@@ -732,7 +735,7 @@ async def _dispatch(method: str, params: Dict[str, Any]) -> Any:
                 _complete_agent_tool_call_id(session_id)
 
         response_text = await whimbox_agent.query_agent(
-            message,
+            user_content,
             thread_id=session_id,
             stream_callback=stream_callback,
             status_callback=status_callback,
