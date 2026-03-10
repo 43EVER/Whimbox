@@ -78,7 +78,7 @@
         },
         "start_magnet": {
             "value": "false",
-            "description": "开启扇子套衍生能力"
+            "description": "收集结晶时开启扇子套吸金能力"
         },
         "home_name": {
             "value": "",

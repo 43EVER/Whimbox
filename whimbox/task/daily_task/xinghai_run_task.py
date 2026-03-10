@@ -90,16 +90,6 @@ class XinghaiRunTask(TaskTemplate):
         self.target_loc = nikki_map.get_bigmap_posi()
         logger.debug(f"星光结晶地图坐标: {self.target_loc}")
 
-    @register_step("开启扇子套吸金能力")
-    def step_start_magnet(self):
-        should_start = global_config.get_bool("OneDragon", "start_magnet")
-        if should_start:
-            from whimbox.action.magnet import MagnetTask
-
-            magnet_task = MagnetTask(session_id=self.session_id)
-            magnet_task.task_run()
-        else:
-            self.log_to_gui("未设置开启扇子套衍生能力")
 
     @register_step("开始跑图收集星光结晶")
     def step3(self):
@@ -115,6 +105,16 @@ class XinghaiRunTask(TaskTemplate):
         }
         for path_name, loc in auto_path_dict.items():
             if euclidean_distance(self.target_loc, loc) < 30:
+
+                should_start = global_config.get_bool("OneDragon", "start_magnet")
+                if should_start:
+                    self.log_to_gui("开启扇子套吸金能力")
+                    from whimbox.action.magnet import MagnetTask
+                    magnet_task = MagnetTask(session_id=self.session_id)
+                    magnet_task.task_run()
+                else:
+                    self.log_to_gui("未设置开启扇子套吸金能力")
+
                 auto_path_task = AutoPathTask(session_id=self.session_id, path_name=path_name)
                 task_result = auto_path_task.task_run()
                 if task_result.status == STATE_TYPE_SUCCESS:
