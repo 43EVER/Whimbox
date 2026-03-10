@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import difflib
 import json
-import tempfile
+import shutil
 import uuid
 from threading import Event
 from pathlib import Path
@@ -14,6 +14,27 @@ from typing_extensions import Literal
 
 from whimbox.interaction.interaction_core import itt
 from whimbox.tool_invocation_coordinator import tool_invocation_coordinator
+from whimbox.common.path_lib import LOG_PATH
+
+
+SCREENSHOT_CACHE_DIR = Path(LOG_PATH) / "screenshot"
+
+
+def get_screenshot_cache_dir() -> Path:
+    SCREENSHOT_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    return SCREENSHOT_CACHE_DIR
+
+
+def clear_screenshot_cache() -> None:
+    screenshot_dir = get_screenshot_cache_dir()
+    for entry in screenshot_dir.iterdir():
+        try:
+            if entry.is_dir():
+                shutil.rmtree(entry)
+            else:
+                entry.unlink()
+        except OSError:
+            continue
 
 
 def _resolve_path(workspace_root: Path, path: str) -> Path:
@@ -150,8 +171,7 @@ def build_workspace_tools(
         def _do_analyze() -> str:
             resolved_path = path
             if mode == "screenshot":
-                screenshot_dir = Path(tempfile.gettempdir()) / "whimbox_agent_images"
-                screenshot_dir.mkdir(parents=True, exist_ok=True)
+                screenshot_dir = get_screenshot_cache_dir()
                 screenshot_path = screenshot_dir / f"{session_id or 'default'}_{uuid.uuid4().hex}.png"
                 image = itt.capture()
                 cv2.imwrite(str(screenshot_path), image)
