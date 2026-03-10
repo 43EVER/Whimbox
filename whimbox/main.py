@@ -4,6 +4,10 @@ import sys
 from whimbox.common.logger import logger
 from whimbox.common.windows_dpi import enable_dpi_awareness
 
+def _clear_temp_file():
+    logger.info("清理上次运行产生的临时文件")
+    from whimbox.agent_workspace.tools import clear_screenshot_cache
+    clear_screenshot_cache()
 
 def _prepare():
     enable_dpi_awareness()
@@ -16,23 +20,28 @@ def _prepare():
         logger.info(f"奇想盒后台版本号: {version('whimbox')}")
     except PackageNotFoundError:
         logger.info(f"奇想盒后台版本号: dev")
+    _clear_temp_file()
+
 
 def run_whimbox():
     _prepare()
+
     from whimbox.plugin_runtime import init_plugins
-    from whimbox.mcp_agent import mcp_agent
+    from whimbox.agent import whimbox_agent
     from whimbox.rpc_server import start_rpc_server
 
     logger.info("加载插件……")
     init_plugins()
     logger.info("启动agent……")
-    asyncio.run(mcp_agent.start())
+    asyncio.run(whimbox_agent.start())
     logger.info("启动rpc服务器……")
     asyncio.run(start_rpc_server())
 
 def run_one_dragon():
     _prepare()
+
     from whimbox.task.daily_task.all_in_one_task import AllInOneTask
+    
     logger.info("开始执行一条龙任务...")
     task = AllInOneTask(session_id="default")
     task_result = task.task_run()

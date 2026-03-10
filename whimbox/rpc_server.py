@@ -1,7 +1,7 @@
 import asyncio
 import json
-import os
 import time
+from collections import deque
 from typing import Any, Dict, Optional, Set
 from uuid import uuid4
 
@@ -10,27 +10,29 @@ from pynput import keyboard
 
 from whimbox.common.cvars import RPC_CONFIG, has_foreground_task
 from whimbox.common.logger import logger
-from whimbox.common.path_lib import ASSETS_PATH
-from whimbox.config.default_config import DEFAULT_CONFIG
 from whimbox.config.config import global_config
-from whimbox.mcp_agent import mcp_agent
+from whimbox.agent import whimbox_agent
 from whimbox.plugin_runtime import get_registry, init_plugins, get_loaded_plugins, get_plugins_version
+from whimbox.rpc_method_groups import (
+    UNHANDLED,
+    handle_background_method,
+    handle_config_method,
+    handle_script_method,
+)
+from whimbox.agent_workspace.session import compose_user_content, has_content
 from whimbox.session_manager import session_manager
 from whimbox.task_manager import task_manager
-from whimbox.task.background_task import background_manager, BackgroundFeature
-from whimbox.common.scripts_manager import scripts_manager
 
 
 _clients: Set[Any] = set()
 _client_send_locks: Dict[Any, asyncio.Lock] = {}
 _loop: Optional[asyncio.AbstractEventLoop] = None
-_setting_options_cache: Optional[Dict[str, Any]] = None
-_material_options_cache: Optional[list[str]] = None
 _overlay_hotkey_listener: Optional[keyboard.Listener] = None
 _last_overlay_hotkey_ts = 0.0
 _agent_stopping_sessions: Set[str] = set()
 _task_stopping_run_ids: Set[str] = set()
 _agent_active_tool_call_ids: Dict[str, str] = {}
+_agent_pending_tool_call_ids: Dict[str, deque[str]] = {}
 _one_dragon_auto_start_scheduled = False
 
 
@@ -79,7 +81,7 @@ def notify_event(method: str, params: Dict[str, Any]) -> None:
         source = params.get("source")
         session_id = str(params.get("session_id") or "default")
         if source == "task" and not params.get("tool_call_id"):
-            tool_call_id = _agent_active_tool_call_ids.get(session_id, "")
+            tool_call_id = _resolve_agent_tool_call_id(session_id, activate_pending=True)
             if tool_call_id:
                 params = {**params, "tool_call_id": tool_call_id}
     _notify(method, params)
@@ -146,16 +148,48 @@ def _notify_run_log(
 def _bind_agent_tool_call_id(session_id: str) -> str:
     sid = session_id or "default"
     tool_call_id = f"tool_{uuid4().hex}"
-    _agent_active_tool_call_ids[sid] = tool_call_id
+    queue = _agent_pending_tool_call_ids.get(sid)
+    if queue is None:
+        queue = deque()
+        _agent_pending_tool_call_ids[sid] = queue
+    queue.append(tool_call_id)
     return tool_call_id
 
 
-def _resolve_agent_tool_call_id(session_id: str) -> str:
-    return _agent_active_tool_call_ids.get(session_id or "default", "")
+def _resolve_agent_tool_call_id(session_id: str, *, activate_pending: bool = False) -> str:
+    sid = session_id or "default"
+    active = _agent_active_tool_call_ids.get(sid, "")
+    if active:
+        return active
+    if not activate_pending:
+        return ""
+    queue = _agent_pending_tool_call_ids.get(sid)
+    if queue:
+        active = queue[0]
+        _agent_active_tool_call_ids[sid] = active
+        return active
+    return ""
+
+
+def _complete_agent_tool_call_id(session_id: str) -> str:
+    sid = session_id or "default"
+    tool_call_id = _resolve_agent_tool_call_id(sid, activate_pending=True)
+    _agent_active_tool_call_ids.pop(sid, None)
+    queue = _agent_pending_tool_call_ids.get(sid)
+    if queue:
+        if tool_call_id and queue and queue[0] == tool_call_id:
+            queue.popleft()
+        elif tool_call_id and tool_call_id in queue:
+            queue.remove(tool_call_id)
+        if not queue:
+            _agent_pending_tool_call_ids.pop(sid, None)
+    return tool_call_id
 
 
 def _clear_agent_tool_call_id(session_id: str) -> None:
-    _agent_active_tool_call_ids.pop(session_id or "default", None)
+    sid = session_id or "default"
+    _agent_active_tool_call_ids.pop(sid, None)
+    _agent_pending_tool_call_ids.pop(sid, None)
 
 
 def _emit_agent_stopping(session_id: str, *, detail: str = "manual_stop") -> None:
@@ -210,7 +244,7 @@ def _emit_task_stopping(task_info: Dict[str, Any], *, detail: str = "manual_stop
 def _request_global_stop(*, detail: str) -> bool:
     stopped_any = False
 
-    for item in mcp_agent.request_stop_all():
+    for item in whimbox_agent.request_stop_all():
         sid = str(item.get("session_id") or "default")
         tool_running = bool(item.get("tool_running"))
         if not tool_running:
@@ -286,196 +320,6 @@ def _start_overlay_hotkey_listener() -> None:
     logger.info("Overlay global hotkey listener started")
 
 
-def _load_setting_options() -> Dict[str, Any]:
-    global _setting_options_cache
-    if _setting_options_cache is not None:
-        return _setting_options_cache
-    try:
-        path = os.path.join(ASSETS_PATH, "setting_options.json")
-        with open(path, "r", encoding="utf-8") as f:
-            _setting_options_cache = json.load(f)
-    except Exception:
-        _setting_options_cache = {}
-    return _setting_options_cache
-
-
-def _load_material_options() -> list[str]:
-    global _material_options_cache
-    if _material_options_cache is not None:
-        return _material_options_cache
-    try:
-        path = os.path.join(ASSETS_PATH, "material.json")
-        with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        _material_options_cache = list(data.keys())
-    except Exception:
-        _material_options_cache = []
-    return _material_options_cache
-
-
-def _infer_config_type(value: Any) -> str:
-    if isinstance(value, bool):
-        return "boolean"
-    if isinstance(value, (int, float)):
-        return "number"
-    if isinstance(value, str):
-        lowered = value.lower()
-        if lowered in ("true", "false"):
-            return "boolean"
-        numeric = value.replace(".", "", 1).replace("-", "", 1)
-        if numeric.isdigit():
-            return "number"
-    return "string"
-
-
-def _serialize_script_info(record: Any) -> Dict[str, Any]:
-    info = getattr(record, "info", None)
-    if info is None:
-        return {}
-    try:
-        return info.model_dump()
-    except Exception:  # noqa: BLE001
-        return {}
-
-
-def _get_background_state() -> Dict[str, Any]:
-    return {
-        "running": background_manager.is_running(),
-        "features": {
-            feature.value: background_manager.is_feature_enabled(feature)
-            for feature in BackgroundFeature
-        },
-    }
-
-
-def _set_background_feature(feature_key: str, enabled: bool) -> None:
-    try:
-        feature = BackgroundFeature(feature_key)
-    except ValueError as exc:
-        raise ValueError(f"invalid feature: {feature_key}") from exc
-    background_manager.set_feature_enabled(feature, enabled)
-    any_enabled = any(
-        background_manager.is_feature_enabled(item) for item in BackgroundFeature
-    )
-    if any_enabled and not background_manager.is_running():
-        background_manager.start_background_task()
-    elif not any_enabled and background_manager.is_running():
-        background_manager.stop_background_task()
-
-
-def _split_config_path(path: str) -> list[str]:
-    if not isinstance(path, str) or not path.strip():
-        raise ValueError("path is required")
-    return [part for part in path.split(".") if part]
-
-
-def _get_config_value(path: str) -> Any:
-    parts = _split_config_path(path)
-    if len(parts) == 1:
-        section = global_config.config.get(parts[0])
-        if section is None:
-            raise ValueError(f"config section not found: {parts[0]}")
-        return section
-    if len(parts) == 2:
-        section = global_config.config.get(parts[0]) or {}
-        if parts[1] not in section:
-            raise ValueError(f"config key not found: {path}")
-        return section.get(parts[1])
-    raise ValueError("path must be in 'Section' or 'Section.key' format")
-
-
-def _apply_config_update(path: str, value: Any) -> None:
-    parts = _split_config_path(path)
-    if len(parts) != 2:
-        raise ValueError("update path must be in 'Section.key' format")
-    section, key = parts
-    global_config.set(section, key, value)
-
-
-def _coerce_bool(value: Any) -> bool:
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, str):
-        return value.strip().lower() in ("true", "1", "yes", "on")
-    return bool(value)
-
-
-def _get_one_dragon_default_steps() -> list[Dict[str, Any]]:
-    section = global_config.config.get("OneDragonDefaultSteps") or {}
-    defaults = DEFAULT_CONFIG.get("OneDragonDefaultSteps") or {}
-    items = []
-    for key, default_item in defaults.items():
-        item = section.get(key) or {}
-        items.append(
-            {
-                "key": key,
-                "label": str(
-                    item.get("description")
-                    or default_item.get("description")
-                    or key
-                ),
-                "enabled": _coerce_bool(item.get("value", default_item.get("value"))),
-            }
-        )
-    return items
-
-
-def _normalize_one_dragon_custom_step(step: Any) -> Dict[str, Any]:
-    if not isinstance(step, dict):
-        raise ValueError("custom step must be an object")
-    step_id = str(step.get("id") or "").strip()
-    if not step_id:
-        raise ValueError("custom step id is required")
-    step_type = str(step.get("type") or "").strip()
-    if step_type not in ("path", "macro", "close_game"):
-        raise ValueError("custom step type must be one of: path, macro, close_game")
-    script_name = str(step.get("script_name") or "").strip()
-    return {
-        "id": step_id,
-        "enabled": _coerce_bool(step.get("enabled", True)),
-        "type": step_type,
-        "script_name": script_name if step_type in ("path", "macro") else "",
-    }
-
-
-def _get_one_dragon_custom_steps() -> list[Dict[str, Any]]:
-    raw_items = []
-    try:
-        raw_items = global_config.get("OneDragonCustomSteps", "items", [])
-    except Exception:
-        raw_items = []
-    if not isinstance(raw_items, list):
-        return []
-    items = []
-    for item in raw_items:
-        try:
-            items.append(_normalize_one_dragon_custom_step(item))
-        except ValueError:
-            continue
-    return items
-
-
-def _update_one_dragon_flow(default_steps: Any = None, custom_steps: Any = None) -> None:
-    valid_default_keys = set((DEFAULT_CONFIG.get("OneDragonDefaultSteps") or {}).keys())
-
-    if default_steps is not None:
-        if not isinstance(default_steps, dict):
-            raise ValueError("default_steps must be an object")
-        for key, enabled in default_steps.items():
-            if key not in valid_default_keys:
-                raise ValueError(f"invalid default step: {key}")
-            global_config.set("OneDragonDefaultSteps", key, "true" if _coerce_bool(enabled) else "false")
-
-    if custom_steps is not None:
-        if not isinstance(custom_steps, list):
-            raise ValueError("custom_steps must be a list")
-        normalized_steps = [_normalize_one_dragon_custom_step(item) for item in custom_steps]
-        global_config.set("OneDragonCustomSteps", "items", normalized_steps)
-
-    if not global_config.save():
-        raise ValueError("config save failed")
-
-
 async def _run_registered_task(
     task: Any,
     *,
@@ -494,12 +338,35 @@ async def _run_registered_task(
         tool_id=tool_id,
     )
     try:
+        wait_status_sent = False
+
+        def _emit_waiting() -> None:
+            nonlocal wait_status_sent
+            if wait_status_sent:
+                return
+            wait_status_sent = True
+            _notify_run_status(
+                session_id=session_id,
+                run_id=task.task_id,
+                source="task",
+                phase="running",
+                tool_id=tool_id,
+                detail="waiting_for_lock",
+            )
+
         result = await asyncio.to_thread(
             registry.invoke,
             tool_id,
             session_id,
             input_data,
-            {"session_id": session_id, "stop_event": task.stop_event, "run_id": task.task_id},
+            {
+                "session_id": session_id,
+                "stop_event": task.stop_event,
+                "run_id": task.task_id,
+                "invocation_source": "task",
+                "wait_policy": "wait",
+                "on_wait": _emit_waiting,
+            },
         )
         result_status = ""
         if isinstance(result, dict):
@@ -710,35 +577,14 @@ def _error_response(
 
 
 async def _dispatch(method: str, params: Dict[str, Any]) -> Any:
-    if method == "tool.list":
-        registry = get_registry()
-        return registry.list_tools()
-
-    if method == "tool.invoke":
-        tool_id = params.get("tool_id")
-        session_id = params.get("session_id", "default")
-        input_data = params.get("input", {}) or {}
-        if not tool_id:
-            raise ValueError("tool_id is required")
-        registry = get_registry()
-        output = registry.invoke(
-            tool_id=tool_id,
-            session_id=session_id,
-            input_data=input_data,
-            context={"session_id": session_id},
-        )
-        _notify(
-            "event.action.executed",
-            {"session_id": session_id, "tool_id": tool_id, "output": output},
-        )
-        return {"output": output}
-
     if method == "agent.send_message":
         session_id = params.get("session_id", "default")
         message = params.get("message", "")
-        if not message:
+        attachments = params.get("attachments", []) or []
+        user_content = compose_user_content(message, attachments if isinstance(attachments, list) else [])
+        if not has_content(user_content):
             raise ValueError("message is required")
-        agent_ready, _, err_msg = mcp_agent.is_ready()
+        agent_ready, _, err_msg = whimbox_agent.is_ready()
         if not agent_ready:
             return {"message": err_msg or "Agent not ready"}
 
@@ -753,7 +599,47 @@ async def _dispatch(method: str, params: Dict[str, Any]) -> Any:
 
         def status_callback(status_type: str, detail: str = "", meta: Optional[Dict[str, Any]] = None) -> None:
             logger.info(f"Agent status: {status_type}, {detail}")
-            if status_type == "on_tool_start":
+            if status_type == "thinking":
+                _notify_run_status(
+                    session_id=session_id,
+                    run_id=session_id,
+                    source="agent",
+                    phase="started",
+                    detail="thinking",
+                )
+            elif status_type == "generating":
+                _notify_run_status(
+                    session_id=session_id,
+                    run_id=session_id,
+                    source="agent",
+                    phase="running",
+                    detail="generating",
+                )
+            elif status_type == "completed":
+                tool_call_id = _resolve_agent_tool_call_id(session_id)
+                _notify_run_status(
+                    session_id=session_id,
+                    run_id=session_id,
+                    source="agent",
+                    phase="completed",
+                    detail=detail or "completed",
+                    tool_call_id=tool_call_id,
+                )
+                _agent_stopping_sessions.discard(session_id)
+                _clear_agent_tool_call_id(session_id)
+            elif status_type == "cancelled":
+                tool_call_id = _resolve_agent_tool_call_id(session_id)
+                _notify_run_status(
+                    session_id=session_id,
+                    run_id=session_id,
+                    source="agent",
+                    phase="cancelled",
+                    detail=detail or "cancelled",
+                    tool_call_id=tool_call_id,
+                )
+                _agent_stopping_sessions.discard(session_id)
+                _clear_agent_tool_call_id(session_id)
+            elif status_type == "on_tool_start":
                 tool_call_id = _bind_agent_tool_call_id(session_id)
                 _notify_run_status(
                     session_id=session_id,
@@ -764,7 +650,7 @@ async def _dispatch(method: str, params: Dict[str, Any]) -> Any:
                     tool_call_id=tool_call_id,
                 )
             elif status_type == "on_tool_stopping":
-                tool_call_id = _resolve_agent_tool_call_id(session_id)
+                tool_call_id = _resolve_agent_tool_call_id(session_id, activate_pending=True)
                 _notify_run_status(
                     session_id=session_id,
                     run_id=session_id,
@@ -774,7 +660,7 @@ async def _dispatch(method: str, params: Dict[str, Any]) -> Any:
                     tool_call_id=tool_call_id,
                 )
             elif status_type == "on_tool_end":
-                tool_call_id = _resolve_agent_tool_call_id(session_id)
+                tool_call_id = _resolve_agent_tool_call_id(session_id, activate_pending=True)
                 output = meta.get("output") if isinstance(meta, dict) else None
                 result_status = ""
                 result_message = ""
@@ -821,9 +707,9 @@ async def _dispatch(method: str, params: Dict[str, Any]) -> Any:
                     type_="finalize_ai_message",
                 )
                 _agent_stopping_sessions.discard(session_id)
-                _clear_agent_tool_call_id(session_id)
+                _complete_agent_tool_call_id(session_id)
             elif status_type in {"on_tool_error", "error"}:
-                tool_call_id = _resolve_agent_tool_call_id(session_id)
+                tool_call_id = _resolve_agent_tool_call_id(session_id, activate_pending=True)
                 error_message = ""
                 if isinstance(meta, dict):
                     error_message = str(meta.get("error") or "").strip()
@@ -846,10 +732,10 @@ async def _dispatch(method: str, params: Dict[str, Any]) -> Any:
                     type_="finalize_ai_message",
                 )
                 _agent_stopping_sessions.discard(session_id)
-                _clear_agent_tool_call_id(session_id)
+                _complete_agent_tool_call_id(session_id)
 
-        response_text = await mcp_agent.query_agent(
-            message,
+        response_text = await whimbox_agent.query_agent(
+            user_content,
             thread_id=session_id,
             stream_callback=stream_callback,
             status_callback=status_callback,
@@ -858,7 +744,7 @@ async def _dispatch(method: str, params: Dict[str, Any]) -> Any:
 
     if method == "agent.stop":
         session_id = params.get("session_id", "default")
-        stop_result = mcp_agent.request_stop(session_id)
+        stop_result = whimbox_agent.request_stop(session_id)
         if not stop_result.get("ok"):
             return {"ok": False, "tool_running": bool(stop_result.get("tool_running"))}
         if stop_result.get("tool_running"):
@@ -955,142 +841,12 @@ async def _dispatch(method: str, params: Dict[str, Any]) -> Any:
         _emit_task_stopping(task_info or {"task_id": task_id}, detail="manual_stop")
         return {"ok": True}
 
-    if method == "script.query_path":
-        name = params.get("name")
-        target = params.get("target")
-        nav_type = params.get("type")
-        count = params.get("count")
-        show_default = bool(params.get("show_default", False))
-        if isinstance(count, str):
-            try:
-                count = int(count)
-            except ValueError as exc:
-                raise ValueError("count must be a number") from exc
-        paths = scripts_manager.query_path(
-            name=name,
-            target=target,
-            type=nav_type,
-            count=count,
-            return_one=False,
-            show_default=show_default,
-        )
-        items = [{"info": _serialize_script_info(record)} for record in paths]
-        return items
-
-    if method == "script.query_macro":
-        name = params.get("name")
-        is_play_music = bool(params.get("is_play_music", False))
-        show_default = bool(params.get("show_default", False))
-        macros = scripts_manager.query_macro(
-            name=name,
-            is_play_music=is_play_music,
-            return_one=False,
-            show_default=show_default,
-        )
-        items = [{"info": _serialize_script_info(record)} for record in macros]
-        return items
-
-    if method == "script.delete":
-        name = params.get("name")
-        category = params.get("category")
-        if not name:
-            raise ValueError("name is required")
-        if category not in ("path", "macro", "music"):
-            raise ValueError("category must be one of: path, macro, music")
-        if category == "path":
-            deleted = scripts_manager.delete_path(name)
-        else:
-            deleted = scripts_manager.delete_macro(name)
-        return {"deleted": deleted}
-
-    if method == "script.refresh":
-        scripts_manager.init_scripts_dict()
-        return {"ok": True}
-
     if method == "health":
         return {"status": "ok"}
 
-    if method == "config.get":
-        path = params.get("path", "OneDragon")
-        value = _get_config_value(path)
-        return {"path": path, "value": value}
-
-    if method == "config.meta":
-        section = params.get("section", "OneDragon")
-        if section not in DEFAULT_CONFIG:
-            raise ValueError(f"config section not found: {section}")
-        setting_options = _load_setting_options()
-        material_options = _load_material_options()
-        items = []
-        for key, item in DEFAULT_CONFIG.get(section, {}).items():
-            value = item.get("value")
-            meta_item = {
-                "key": key,
-                "description": item.get("description", ""),
-                "type": _infer_config_type(value),
-            }
-            if key in setting_options:
-                meta_item["options"] = setting_options.get(key, [])
-            if key in ("jihua_cost", "jihua_cost_2", "jihua_cost_3"):
-                meta_item["options"] = material_options
-            items.append(meta_item)
-        return {"section": section, "items": items}
-
-    if method == "config.update":
-        updates = params.get("updates")
-        if updates is not None:
-            if not isinstance(updates, list):
-                raise ValueError("updates must be a list")
-            for item in updates:
-                if not isinstance(item, dict):
-                    raise ValueError("update item must be object")
-                _apply_config_update(item.get("path"), item.get("value"))
-        else:
-            _apply_config_update(params.get("path"), params.get("value"))
-        if not global_config.save():
-            raise ValueError("config save failed")
-        return {"ok": True}
-
-    if method == "one_dragon.flow.get":
-        return {
-            "default_steps": _get_one_dragon_default_steps(),
-            "custom_steps": _get_one_dragon_custom_steps(),
-        }
-
-    if method == "one_dragon.flow.update":
-        _update_one_dragon_flow(
-            default_steps=params.get("default_steps"),
-            custom_steps=params.get("custom_steps"),
-        )
-        return {
-            "ok": True,
-            "default_steps": _get_one_dragon_default_steps(),
-            "custom_steps": _get_one_dragon_custom_steps(),
-        }
-
-    if method == "background.get":
-        return _get_background_state()
-
-    if method == "background.set":
-        updates = params.get("updates")
-        if updates is not None:
-            if not isinstance(updates, list):
-                raise ValueError("updates must be a list")
-            for item in updates:
-                if not isinstance(item, dict):
-                    raise ValueError("update item must be object")
-                _set_background_feature(
-                    item.get("feature"), bool(item.get("enabled"))
-                )
-        else:
-            _set_background_feature(
-                params.get("feature"), bool(params.get("enabled"))
-            )
-        return _get_background_state()
-
     if method == "plugin.reload":
         init_plugins(force_reload=True)
-        mcp_agent.reload_tools()
+        whimbox_agent.reload_tools()
         return {
             "version": get_plugins_version(),
             "plugins": get_loaded_plugins(),
@@ -1101,6 +857,18 @@ async def _dispatch(method: str, params: Dict[str, Any]) -> Any:
             "version": get_plugins_version(),
             "plugins": get_loaded_plugins(),
         }
+
+    result = handle_script_method(method, params)
+    if result is not UNHANDLED:
+        return result
+
+    result = handle_config_method(method, params)
+    if result is not UNHANDLED:
+        return result
+
+    result = handle_background_method(method, params)
+    if result is not UNHANDLED:
+        return result
 
     raise NotImplementedError(f"method not found: {method}")
 

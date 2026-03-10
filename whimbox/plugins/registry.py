@@ -1,5 +1,8 @@
 from dataclasses import dataclass
+from threading import Event
 from typing import Any, Callable, Dict, List, Optional
+
+from whimbox.tool_invocation_coordinator import tool_invocation_coordinator
 
 
 class ToolRegistryError(Exception):
@@ -88,5 +91,42 @@ class PluginRegistry:
         if tool_id not in self._tools:
             raise ToolRegistryError(f"tool not found: {tool_id}")
         spec = self._tools[tool_id]
-        return spec.func(session_id=session_id, input=input_data, context=context or {})
+        resolved_context = context or {}
+        stop_event = resolved_context.get("stop_event")
+        if not isinstance(stop_event, Event):
+            stop_event = None
+        invocation_source = str(resolved_context.get("invocation_source") or "agent")
+        wait_policy = str(resolved_context.get("wait_policy") or "wait")
+        on_wait = resolved_context.get("on_wait")
+        if not callable(on_wait):
+            on_wait = None
+        resource_group = _resolve_resource_group(spec.permissions)
+        owner = str(
+            resolved_context.get("run_id")
+            or resolved_context.get("tool_call_id")
+            or f"{invocation_source}:{session_id}:{tool_id}"
+        )
+        with tool_invocation_coordinator.hold_sync(
+            resource_group=resource_group,
+            owner=owner,
+            wait_policy=wait_policy,
+            stop_event=stop_event,
+            on_wait=on_wait,
+        ) as acquire_result:
+            if not acquire_result.acquired:
+                if acquire_result.reason == "stopped":
+                    return {"status": "stop", "message": "任务已停止"}
+                return {
+                    "status": "busy",
+                    "message": f"resource group is occupied: {resource_group}",
+                }
+            resolved_context = {**resolved_context, "resource_group": resource_group}
+            return spec.func(session_id=session_id, input=input_data, context=resolved_context)
+
+
+def _resolve_resource_group(permissions: List[str]) -> str:
+    values = set(permissions or [])
+    if "screen" in values or "input" in values:
+        return "game_runtime"
+    return "default"
 

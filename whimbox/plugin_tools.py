@@ -63,7 +63,11 @@ def build_tools(
         def _make_tool_func(target_tool_id: str):
             def _tool_func(**kwargs):
                 session_id = session_id_getter() or "default"
-                context: Dict[str, Any] = {"session_id": session_id}
+                context: Dict[str, Any] = {
+                    "session_id": session_id,
+                    "invocation_source": "agent",
+                    "wait_policy": "wait",
+                }
                 if stop_event_getter is not None:
                     stop_event = stop_event_getter()
                     if stop_event is not None:

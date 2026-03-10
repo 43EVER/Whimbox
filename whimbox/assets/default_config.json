@@ -55,7 +55,7 @@
     },
     "Agent": {
         "model":{
-            "value": "Qwen/Qwen3-30B-A3B-Instruct-2507",
+            "value": "Qwen/Qwen3.5-35B-A3B",
             "description": "模型名称(model)"
         },
         "model_provider":{
@@ -78,7 +78,7 @@
         },
         "start_magnet": {
             "value": "false",
-            "description": "开启扇子套衍生能力"
+            "description": "收集结晶时开启扇子套吸金能力"
         },
         "home_name": {
             "value": "",
