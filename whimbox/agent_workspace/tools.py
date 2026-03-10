@@ -50,35 +50,35 @@ def _resolve_path(workspace_root: Path, path: str) -> Path:
 
 
 class ReadFileArgs(BaseModel):
-    path: str = Field(..., description="Workspace-relative path to read, for example skills/memory/SKILL.md")
+    path: str = Field(..., description="要读取的 workspace 相对路径，例如 skills/memory/SKILL.md")
 
 
 class WriteFileArgs(BaseModel):
-    path: str = Field(..., description="Workspace-relative path to write")
-    content: str = Field(..., description="Full file content to write")
+    path: str = Field(..., description="要写入的 workspace 相对路径")
+    content: str = Field(..., description="要写入文件的完整内容")
 
 
 class EditFileArgs(BaseModel):
-    path: str = Field(..., description="Workspace-relative path to edit")
-    old_text: str = Field(..., description="Exact existing text to replace")
-    new_text: str = Field(..., description="Replacement text")
+    path: str = Field(..., description="要编辑的 workspace 相对路径")
+    old_text: str = Field(..., description="需要被替换的原始文本，必须完全匹配")
+    new_text: str = Field(..., description="替换后的新文本")
 
 
 class ListDirArgs(BaseModel):
-    path: str = Field(..., description="Workspace-relative directory path to inspect")
+    path: str = Field(..., description="要查看的 workspace 相对目录路径")
 
 
 class GrepHistoryArgs(BaseModel):
-    query: str = Field(..., description="Keyword or regular expression to search in memory/HISTORY.md.")
-    case_sensitive: bool = Field(False, description="Whether the search should be case-sensitive.")
-    regex: bool = Field(False, description="Whether query should be treated as a regular expression.")
-    max_results: int = Field(10, description="Maximum number of matching lines to return.")
+    query: str = Field(..., description="要在 memory/HISTORY.md 中搜索的关键词或正则表达式")
+    case_sensitive: bool = Field(False, description="是否区分大小写")
+    regex: bool = Field(False, description="是否将 query 按正则表达式处理")
+    max_results: int = Field(10, description="最多返回多少条匹配结果")
 
 
 class AnalyzeImageArgs(BaseModel):
-    mode: Literal["path", "screenshot"] = Field(..., description="Use 'path' to analyze a local image, or 'screenshot' to capture the current game screen first.")
-    prompt: str = Field(..., description="The analysis request to apply to the image, including any scoring rubric.")
-    path: str | None = Field(None, description="Absolute local image path when mode is 'path'.")
+    mode: Literal["path", "screenshot"] = Field(..., description="使用 'path' 分析本地图片，或使用 'screenshot' 先截取当前游戏画面")
+    prompt: str = Field(..., description="对图片执行的分析要求")
+    path: str | None = Field(None, description="当 mode 为 'path' 时使用的本地图片绝对路径")
 
 
 def build_workspace_tools(
@@ -262,37 +262,37 @@ def build_workspace_tools(
         StructuredTool.from_function(
             func=_read_file,
             name="read_file",
-            description="Read a UTF-8 text file from the agent workspace, such as SKILL.md or MEMORY.md.",
+            description="读取 agent workspace 中的文本文件，例如 SKILL.md 或 MEMORY.md。",
             args_schema=ReadFileArgs,
         ),
         StructuredTool.from_function(
             func=_write_file,
             name="write_file",
-            description="Write full content to a file in the agent workspace. Creates parent directories if needed.",
+            description="向 agent workspace 中的文件写入完整内容。",
             args_schema=WriteFileArgs,
         ),
         StructuredTool.from_function(
             func=_edit_file,
             name="edit_file",
-            description="Edit a file in the agent workspace by replacing exact old_text with new_text.",
+            description="编辑 agent workspace 中的文件，将完全匹配的 old_text 替换为 new_text。",
             args_schema=EditFileArgs,
         ),
         StructuredTool.from_function(
             func=_list_dir,
             name="list_dir",
-            description="List files and directories within the agent workspace.",
+            description="列出 agent workspace 中指定目录下的文件和子目录。",
             args_schema=ListDirArgs,
         ),
         StructuredTool.from_function(
             func=_grep_history,
             name="grep_history",
-            description="Search memory/HISTORY.md for past archived events. Use this when you need to look up older conversation history that is not loaded into context.",
+            description="搜索 memory/HISTORY.md 中的旧归档内容。当需要查找未加载到上下文中的较早对话历史时使用。",
             args_schema=GrepHistoryArgs,
         ),
         StructuredTool.from_function(
             func=_analyze_image,
             name="analyze_image",
-            description="Analyze an uploaded local image or capture the current game screen, then return a text-only analysis based on the provided prompt.",
+            description="根据给定要求分析图片，或先截取当前游戏画面再分析，并返回纯文本结果。",
             args_schema=AnalyzeImageArgs,
         ),
     ]
