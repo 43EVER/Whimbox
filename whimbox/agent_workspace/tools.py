@@ -292,7 +292,7 @@ def build_workspace_tools(
         StructuredTool.from_function(
             func=_analyze_image,
             name="analyze_image",
-            description="根据给定要求分析图片，或先截取当前游戏画面再分析，并返回纯文本结果。",
+            description="图像分析工具，此工具只会被skill调用，不要擅自调用",
             args_schema=AnalyzeImageArgs,
         ),
     ]

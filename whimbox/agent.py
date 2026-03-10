@@ -409,7 +409,7 @@ class Agent:
             analysis = self._extract_output_text(response).strip()
             return {
                 "status": "success",
-                "message": "Image analyzed successfully.",
+                "message": "图片分析完成",
                 "analysis": analysis,
                 "image_source": image_path,
                 "source_mode": source_mode,
