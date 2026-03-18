@@ -52,8 +52,29 @@ class InteractionBGD:
         self.itt_exec = None
         self.capture_obj = None
         self.operation_lock = threading.Lock()
-        import whimbox.interaction.interaction_normal
-        self.itt_exec = whimbox.interaction.interaction_normal.InteractionNormal(self.hwnd_handler)
+
+        # input_backend = global_config.get('Whimbox', 'input_backend')
+        input_backend = 'interception'
+        if input_backend == 'interception':
+            try:
+                from whimbox.interaction.interaction_interception import InteractionInterception
+                self.itt_exec = InteractionInterception(self.hwnd_handler)
+                logger.info("输入后端: interception (驱动级)")
+            except ImportError:
+                logger.error("interception-python 未安装，回退到 normal 后端。安装方式: pip install interception-python")
+                self.itt_exec = None
+            except Exception as e:
+                logger.error(f"interception 后端初始化失败，回退到 normal 后端: {e}")
+                self.itt_exec = None
+
+        if self.itt_exec is None:
+            import whimbox.interaction.interaction_normal
+            self.itt_exec = whimbox.interaction.interaction_normal.InteractionNormal(self.hwnd_handler)
+            if input_backend == 'interception':
+                logger.info("输入后端: normal (回退)")
+            else:
+                logger.info("输入后端: normal")
+
         from whimbox.interaction.capture import PrintWindowCapture
         self.capture_obj = PrintWindowCapture(self.hwnd_handler)
 
